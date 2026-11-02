@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Search, 
   SlidersHorizontal, 
@@ -9,392 +9,543 @@ import {
   Plus, 
   ChevronRight, 
   Check, 
-  AlertCircle,
-  FileText,
-  HeartPulse
+  AlertCircle, 
+  FileText, 
+  HeartPulse, 
+  Camera, 
+  Mic, 
+  ArrowRight,
+  Droplets,
+  Thermometer,
+  Layers,
+  MapPin,
+  TrendingUp,
+  ShieldCheck,
+  CheckCircle2
 } from 'lucide-react';
 import { INITIAL_PLANTS } from '../data/mockData';
 
-export default function PlantRecordsScreen({ onSelectPlantForScan }) {
-  const [plants, setPlants] = useState(INITIAL_PLANTS);
-  const [selectedPlantId, setSelectedPlantId] = useState('P-001');
+export default function PlantRecordsScreen({ 
+  plants = INITIAL_PLANTS, 
+  onUpdatePlants,
+  initialPlantId = 'P-001',
+  onNavigateToScan, 
+  onNavigateToAssistant 
+}) {
+  const [plantList, setPlantList] = useState(plants);
+  const [selectedPlantId, setSelectedPlantId] = useState(initialPlantId || 'P-001');
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('details'); // 'details' | 'history' | 'care' | 'observations'
-  const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
 
-  // Nouvelle plante form state
+  // Formulaire d'ajout
   const [newPlantName, setNewPlantName] = useState('');
-  const [newPlantSpecies, setNewPlantSpecies] = useState('Tomate');
+  const [newPlantSpecies, setNewPlantSpecies] = useState('Tomate (Solanum lycopersicum)');
+  const [newPlantVariety, setNewPlantVariety] = useState('Roma VF');
+  const [newPlantPlot, setNewPlantPlot] = useState('Parcelle C2');
 
-  const selectedPlant = plants.find(p => p.id === selectedPlantId) || plants[0];
+  useEffect(() => {
+    if (initialPlantId) {
+      setSelectedPlantId(initialPlantId);
+    }
+  }, [initialPlantId]);
 
-  const filteredPlants = plants.filter(p => 
+  useEffect(() => {
+    if (plants && plants.length > 0) {
+      setPlantList(plants);
+    }
+  }, [plants]);
+
+  const selectedPlant = plantList.find(p => p.id === selectedPlantId) || plantList[0];
+
+  const filteredPlants = plantList.filter(p => 
     p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     p.species.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    p.id.toLowerCase().includes(searchQuery.toLowerCase())
+    p.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    p.plot.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const handleAddPlant = (e) => {
     e.preventDefault();
     if (!newPlantName.trim()) return;
 
-    const newId = `P-00${plants.length + 1}`;
+    const newId = `P-00${plantList.length + 1}`;
     const newPlantObj = {
       id: newId,
       name: newPlantName,
       species: newPlantSpecies,
-      variety: "Sélection locale",
+      variety: newPlantVariety,
       status: "saine",
       statusLabel: "Saine",
-      growthStage: "Semis / Croissance",
+      growthStage: "Semis / Végétatif",
       plantingDate: new Date().toLocaleDateString("fr-FR"),
       lastObservation: new Date().toLocaleDateString("fr-FR"),
-      plot: "Parcelle D",
-      waterSchedule: "Quotidien",
+      plot: newPlantPlot,
+      waterSchedule: "Goutte-à-goutte (quotidien)",
       image: "/assets/plante_1.jpg",
-      healthScore: 95,
+      healthScore: 96,
       details: {
-        yieldEstimate: "Non évalué",
-        soilMoisture: "60%",
-        temperature: "25°C",
-        notes: "Nouvelle culture enregistrée dans le carnet numérique."
+        yieldEstimate: "4.0 kg / pied",
+        soilMoisture: "62%",
+        temperature: "24°C",
+        notes: "Culture enregistrée dans le carnet agronomique PhytoScan."
       },
       history: [
-        { date: new Date().toLocaleDateString("fr-FR"), type: "Enregistrement", result: "Plante créée", notes: "Culture initialisée." }
+        { date: new Date().toLocaleDateString("fr-FR"), type: "Enregistrement", result: "Culture initialisée", notes: "Semis et repiquage validés." }
       ],
       care: [
-        { task: "Arrosage", frequency: "Quotidien", status: "En cours" }
+        { task: "Arrosage matinal", frequency: "Quotidien", status: "En cours" },
+        { task: "Paillage racinaire", frequency: "Mensuel", status: "À prévoir" }
       ],
       observations: [
-        { date: new Date().toLocaleDateString("fr-FR"), author: "Agriculteur", text: "Plantation effectuée dans de bonnes conditions." }
+        { date: new Date().toLocaleDateString("fr-FR"), author: "Agriculteur", text: "Plantation réalisée en conditions optimales." }
       ]
     };
 
-    setPlants([newPlantObj, ...plants]);
+    const updated = [newPlantObj, ...plantList];
+    setPlantList(updated);
+    if (onUpdatePlants) onUpdatePlants(updated);
     setSelectedPlantId(newId);
     setShowAddModal(false);
     setNewPlantName('');
   };
 
   return (
-    <div className="screen-scroll-body" id="plants-screen-container">
-      {/* Titre de section */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h2 style={{ fontFamily: 'var(--font-heading)', fontSize: '1.15rem', fontWeight: 800, color: '#0f172a' }}>
-          Mes plantes
-        </h2>
+    <div className="web-page-container">
+      {/* En-tête de page du site web */}
+      <div className="web-page-header">
+        <div>
+          <div className="web-breadcrumb">
+            <span>Accueil</span>
+            <span>/</span>
+            <span className="current">Dossier des cultures</span>
+          </div>
+          <h1 className="web-page-title">
+            Dossier Numérique & Carnet de Santé des Cultures
+          </h1>
+          <p className="web-page-subtitle">
+            Consultez le dossier individuel de vos parcelles, suivez les paramètres agronomiques en temps réel et planifiez vos interventions.
+          </p>
+        </div>
+
         <button 
           type="button" 
-          className="btn-pill-glass"
-          style={{ background: '#d1fae5', color: '#065f46', border: 'none' }}
+          className="web-btn-primary"
           onClick={() => setShowAddModal(true)}
         >
-          <Plus size={14} />
-          <span>Ajouter</span>
+          <Plus size={18} />
+          <span>Ajouter une culture</span>
         </button>
       </div>
 
-      {/* Barre de recherche */}
-      <div className="plants-search-bar">
-        <Search size={16} color="#94a3b8" />
-        <input 
-          type="text" 
-          className="search-input" 
-          placeholder="Rechercher une plante..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-        />
-        <button type="button" className="btn-filter-icon" title="Filtrer">
-          <SlidersHorizontal size={16} />
-        </button>
-      </div>
-
-      {/* Carrousel des vignettes de plantes (comme sur la capture) */}
-      <div className="plants-mini-carousel">
-        {filteredPlants.map((plant) => (
-          <div 
-            key={plant.id} 
-            className={`plant-thumb-card ${selectedPlant.id === plant.id ? 'active' : ''}`}
-            onClick={() => setSelectedPlantId(plant.id)}
-          >
-            <img src={plant.image} alt={plant.name} className="plant-thumb-img" />
-            <span className="plant-thumb-name">{plant.name}</span>
-            <div className="plant-status-badge">
-              <span className={
-                plant.status === 'saine' ? 'status-dot-green' : 
-                plant.status === 'surveiller' ? 'status-dot-orange' : 'status-dot-red'
-              } />
-              <span style={{ 
-                color: plant.status === 'saine' ? '#047857' : plant.status === 'surveiller' ? '#b45309' : '#b91c1c' 
-              }}>
-                {plant.statusLabel}
-              </span>
+      {/* Grille principale 2 colonnes du site web */}
+      <div className="web-plants-grid">
+        {/* =========================================================
+            COLONNE GAUCHE : RÉPERTOIRE DES PLANTES ET FILTRES
+            ========================================================= */}
+        <div className="web-card plants-sidebar-card">
+          <div className="sidebar-header-row">
+            <div>
+              <h3>Répertoire des cultures</h3>
+              <span className="sidebar-count">{filteredPlants.length} cultures suivies</span>
             </div>
           </div>
-        ))}
-      </div>
 
-      {/* Fiche détaillée de la plante sélectionnée */}
-      <div className="plant-detail-main-card">
-        {/* Entête avec photo, nom et statut */}
-        <div className="plant-hero-row">
-          <img 
-            src={selectedPlant.image} 
-            alt={selectedPlant.name} 
-            className="plant-hero-avatar"
-          />
-          <div className="plant-hero-titles">
-            <h3>{selectedPlant.name}</h3>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '3px' }}>
-              <span className={
-                selectedPlant.status === 'saine' ? 'badge-healthy' : 'badge-disease-alert'
-              }>
-                ● {selectedPlant.statusLabel}
-              </span>
-              <span className="plant-hero-id">ID : {selectedPlant.id}</span>
-            </div>
+          {/* Barre de recherche */}
+          <div className="web-search-bar">
+            <Search size={16} color="#94a3b8" />
+            <input 
+              type="text" 
+              className="web-search-input" 
+              placeholder="Rechercher par nom, espèce ou parcelle..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
           </div>
-        </div>
 
-        {/* Alerte si la plante nécessite une intervention */}
-        {selectedPlant.alert && (
-          <div style={{ 
-            background: '#fff1f2', 
-            border: '1px solid #fecdd3', 
-            borderRadius: '8px', 
-            padding: '8px 10px', 
-            fontSize: '0.78rem', 
-            color: '#9f1239',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px'
-          }}>
-            <AlertCircle size={14} color="#e11d48" />
-            <span>{selectedPlant.alert}</span>
-          </div>
-        )}
-
-        {/* Navigation par onglets (Détails / Historique / Soins / Observations) */}
-        <div className="plant-tabs-nav">
-          <button 
-            type="button" 
-            className={`plant-tab-btn ${activeTab === 'details' ? 'active' : ''}`}
-            onClick={() => setActiveTab('details')}
-          >
-            Détails
-          </button>
-          <button 
-            type="button" 
-            className={`plant-tab-btn ${activeTab === 'history' ? 'active' : ''}`}
-            onClick={() => setActiveTab('history')}
-          >
-            Historique
-          </button>
-          <button 
-            type="button" 
-            className={`plant-tab-btn ${activeTab === 'care' ? 'active' : ''}`}
-            onClick={() => setActiveTab('care')}
-          >
-            Soins
-          </button>
-          <button 
-            type="button" 
-            className={`plant-tab-btn ${activeTab === 'observations' ? 'active' : ''}`}
-            onClick={() => setActiveTab('observations')}
-          >
-            Observations
-          </button>
-        </div>
-
-        {/* Contenu de l'onglet Détails */}
-        {activeTab === 'details' && (
-          <div className="plant-meta-list">
-            <div className="meta-item-row">
-              <Sprout size={18} className="meta-item-icon" />
-              <div className="meta-item-content">
-                <span className="meta-label">Espèce</span>
-                <span className="meta-value">{selectedPlant.species} ({selectedPlant.variety})</span>
-              </div>
-            </div>
-
-            <div className="meta-item-row">
-              <Activity size={18} className="meta-item-icon" />
-              <div className="meta-item-content">
-                <span className="meta-label">Stade de croissance</span>
-                <span className="meta-value">{selectedPlant.growthStage}</span>
-              </div>
-            </div>
-
-            <div className="meta-item-row">
-              <Calendar size={18} className="meta-item-icon" />
-              <div className="meta-item-content">
-                <span className="meta-label">Date de plantation</span>
-                <span className="meta-value">{selectedPlant.plantingDate}</span>
-              </div>
-            </div>
-
-            <div className="meta-item-row">
-              <Clock size={18} className="meta-item-icon" />
-              <div className="meta-item-content">
-                <span className="meta-label">Dernière observation</span>
-                <span className="meta-value">{selectedPlant.lastObservation}</span>
-              </div>
-            </div>
-
-            <div className="meta-item-row">
-              <HeartPulse size={18} className="meta-item-icon" />
-              <div className="meta-item-content">
-                <span className="meta-label">Indice de santé globale</span>
-                <span className="meta-value">{selectedPlant.healthScore} / 100</span>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Contenu de l'onglet Historique */}
-        {activeTab === 'history' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {selectedPlant.history?.map((h, i) => (
-              <div key={i} style={{ borderLeft: '2px solid #10b981', paddingLeft: '10px', fontSize: '0.8rem' }}>
-                <div style={{ fontWeight: 700, color: '#0f172a' }}>{h.date} — {h.type}</div>
-                <div style={{ color: '#059669', fontWeight: 600 }}>{h.result}</div>
-                <div style={{ color: '#64748b' }}>{h.notes}</div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Contenu de l'onglet Soins */}
-        {activeTab === 'care' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {selectedPlant.care?.map((c, i) => (
-              <div key={i} style={{ background: '#f8fafc', padding: '8px', borderRadius: '6px', fontSize: '0.8rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div>
-                  <div style={{ fontWeight: 700 }}>{c.task}</div>
-                  <div style={{ color: '#64748b', fontSize: '0.74rem' }}>{c.frequency}</div>
-                </div>
-                <span style={{ fontSize: '0.72rem', background: '#dcfce7', color: '#15803d', padding: '2px 8px', borderRadius: '10px', fontWeight: 600 }}>
-                  {c.status}
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Contenu de l'onglet Observations */}
-        {activeTab === 'observations' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {selectedPlant.observations?.map((o, i) => (
-              <div key={i} style={{ background: '#f1f5f9', padding: '8px', borderRadius: '6px', fontSize: '0.8rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', color: '#64748b', fontSize: '0.74rem', marginBottom: '2px' }}>
-                  <span>{o.author}</span>
-                  <span>{o.date}</span>
-                </div>
-                <div style={{ color: '#1e293b' }}>{o.text}</div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Bouton Voir l'historique complet (comme sur l'image) */}
-      <button 
-        type="button" 
-        className="btn-primary-action"
-        onClick={() => setShowHistoryModal(true)}
-      >
-        <span>Voir l'historique complet</span>
-        <ChevronRight size={18} />
-      </button>
-
-      {/* Modal Historique Complet */}
-      {showHistoryModal && (
-        <div className="modal-backdrop" onClick={() => setShowHistoryModal(false)}>
-          <div className="modal-card" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <FileText color="#10b981" />
-                <h3 className="modal-title">Carnet de santé : {selectedPlant.name}</h3>
-              </div>
-              <button 
-                className="screen-app-btn-icon" 
-                onClick={() => setShowHistoryModal(false)}
+          {/* Liste des cultures défilante */}
+          <div className="web-plants-list">
+            {filteredPlants.map((plant) => (
+              <div 
+                key={plant.id} 
+                className={`web-plant-list-item ${selectedPlant.id === plant.id ? 'active' : ''}`}
+                onClick={() => setSelectedPlantId(plant.id)}
               >
-                ✕
+                <img src={plant.image} alt={plant.name} className="item-avatar-img" />
+                <div className="item-info-col">
+                  <div className="item-title-row">
+                    <span className="item-name">{plant.name}</span>
+                    <span className="item-id-pill">{plant.id}</span>
+                  </div>
+                  <span className="item-species">{plant.species}</span>
+                  <div className="item-meta-row">
+                    <span className="item-plot">
+                      <MapPin size={11} /> {plant.plot}
+                    </span>
+                    <span className={`status-pill-small ${plant.status}`}>
+                      ● {plant.statusLabel}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* =========================================================
+            COLONNE DROITE : FICHE AGRONOMIQUE DÉTAILLÉE
+            ========================================================= */}
+        <div className="web-plant-main-dossier">
+          {/* Hero Banner de la plante sélectionnée */}
+          <div className="web-card plant-hero-web-card">
+            <div className="plant-hero-content-row">
+              <img 
+                src={selectedPlant.image} 
+                alt={selectedPlant.name} 
+                className="plant-hero-web-img"
+              />
+              <div className="plant-hero-web-info">
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                  <span className={`status-pill-large ${selectedPlant.status}`}>
+                    ● {selectedPlant.statusLabel}
+                  </span>
+                  <span className="plant-id-badge">ID : {selectedPlant.id}</span>
+                  <span className="plant-plot-badge">
+                    <MapPin size={13} /> {selectedPlant.plot}
+                  </span>
+                </div>
+
+                <h2 className="plant-display-title">{selectedPlant.name}</h2>
+                <p className="plant-display-species">
+                  {selectedPlant.species} — Variété : <strong>{selectedPlant.variety}</strong>
+                </p>
+
+                {/* Score de santé globale */}
+                <div className="health-score-inline-bar">
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', marginBottom: '4px' }}>
+                    <span style={{ fontWeight: 600, color: '#475569' }}>Indice de santé globale de la culture</span>
+                    <strong style={{ color: selectedPlant.healthScore > 80 ? '#059669' : '#e11d48' }}>
+                      {selectedPlant.healthScore} / 100
+                    </strong>
+                  </div>
+                  <div className="progress-track" style={{ height: '8px' }}>
+                    <div 
+                      className="progress-bar-fill" 
+                      style={{ 
+                        width: `${selectedPlant.healthScore}%`,
+                        background: selectedPlant.healthScore > 80 ? '#10b981' : selectedPlant.healthScore > 60 ? '#f59e0b' : '#ef4444' 
+                      }} 
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Alerte si la plante a un risque phytosanitaire */}
+            {selectedPlant.alert && (
+              <div className="web-plant-alert-banner">
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <AlertCircle size={20} color="#e11d48" />
+                  <div>
+                    <strong style={{ display: 'block', color: '#9f1239', fontSize: '0.9rem' }}>
+                      Alerte sanitaire active
+                    </strong>
+                    <span style={{ color: '#be123c', fontSize: '0.84rem' }}>{selectedPlant.alert}</span>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: '8px', marginLeft: 'auto' }}>
+                  <button 
+                    type="button" 
+                    className="web-btn-chip-action danger"
+                    onClick={() => onNavigateToAssistant && onNavigateToAssistant({
+                      initialQuery: `Alerte sur ${selectedPlant.name} (${selectedPlant.species}) : "${selectedPlant.alert}". Quels remèdes et protocoles appliquer immédiatement ?`
+                    })}
+                  >
+                    <Mic size={14} />
+                    <span>Demander le protocole</span>
+                  </button>
+                  <button 
+                    type="button" 
+                    className="web-btn-chip-action scan"
+                    onClick={() => onNavigateToScan && onNavigateToScan({ targetPlant: selectedPlant })}
+                  >
+                    <Camera size={14} />
+                    <span>Scanner une feuille</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Barre d'actions principales pour cette culture */}
+            <div className="plant-dossier-actions-bar">
+              <button 
+                type="button" 
+                className="web-action-btn plants"
+                onClick={() => onNavigateToScan && onNavigateToScan({ targetPlant: selectedPlant })}
+              >
+                <Camera size={18} />
+                <div style={{ textAlign: 'left' }}>
+                  <span className="btn-main-txt">Diagnostiquer par Scan IA</span>
+                  <span className="btn-sub-txt">Vérifier l'état d'une feuille de cette culture</span>
+                </div>
+                <ArrowRight size={16} style={{ marginLeft: 'auto' }} />
+              </button>
+
+              <button 
+                type="button" 
+                className="web-action-btn assistant"
+                onClick={() => onNavigateToAssistant && onNavigateToAssistant({
+                  initialQuery: `Quels sont les soins et recommandations pour ma plante "${selectedPlant.name}" (${selectedPlant.species}) en parcelle "${selectedPlant.plot}" ?`
+                })}
+              >
+                <Mic size={18} />
+                <div style={{ textAlign: 'left' }}>
+                  <span className="btn-main-txt">Consulter l'Assistant Vocal</span>
+                  <span className="btn-sub-txt">Conseils agronomiques personnalisés</span>
+                </div>
+                <ArrowRight size={16} style={{ marginLeft: 'auto' }} />
+              </button>
+            </div>
+          </div>
+
+          {/* Onglets de contenu détaillé du dossier */}
+          <div className="web-card plant-tabs-web-card">
+            <div className="web-tabs-header">
+              <button 
+                type="button" 
+                className={`web-tab-nav-btn ${activeTab === 'details' ? 'active' : ''}`}
+                onClick={() => setActiveTab('details')}
+              >
+                <FileText size={16} />
+                <span>Paramètres Agronomiques</span>
+              </button>
+
+              <button 
+                type="button" 
+                className={`web-tab-nav-btn ${activeTab === 'history' ? 'active' : ''}`}
+                onClick={() => setActiveTab('history')}
+              >
+                <Activity size={16} />
+                <span>Carnet de Santé & Diagnostics ({selectedPlant.history?.length || 0})</span>
+              </button>
+
+              <button 
+                type="button" 
+                className={`web-tab-nav-btn ${activeTab === 'care' ? 'active' : ''}`}
+                onClick={() => setActiveTab('care')}
+              >
+                <Droplets size={16} />
+                <span>Calendrier des Soins</span>
+              </button>
+
+              <button 
+                type="button" 
+                className={`web-tab-nav-btn ${activeTab === 'observations' ? 'active' : ''}`}
+                onClick={() => setActiveTab('observations')}
+              >
+                <Clock size={16} />
+                <span>Observations Terrain</span>
               </button>
             </div>
 
-            <div style={{ maxHeight: '350px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <div style={{ background: '#f0fdf4', padding: '10px', borderRadius: '8px', fontSize: '0.85rem' }}>
-                <strong>ID Culture :</strong> {selectedPlant.id} | <strong>Parcelle :</strong> {selectedPlant.plot}
-                <br />
-                <strong>Rendement estimé :</strong> {selectedPlant.details.yieldEstimate}
-              </div>
-
-              <h4 style={{ fontSize: '0.9rem', color: '#0f172a' }}>Historique chronologique des événements :</h4>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {selectedPlant.history.map((h, i) => (
-                  <div key={i} style={{ padding: '8px 12px', borderLeft: '3px solid #10b981', background: '#f8fafc' }}>
-                    <div style={{ fontSize: '0.78rem', color: '#64748b' }}>{h.date} — {h.type}</div>
-                    <div style={{ fontWeight: 700, fontSize: '0.85rem', color: '#0f172a' }}>{h.result}</div>
-                    <div style={{ fontSize: '0.8rem', color: '#334155' }}>{h.notes}</div>
+            {/* Contenu : Paramètres agronomiques */}
+            {activeTab === 'details' && (
+              <div className="tab-pane-content">
+                <div className="web-meta-cards-grid">
+                  <div className="meta-card-item">
+                    <div className="meta-icon-box">
+                      <Sprout size={18} />
+                    </div>
+                    <div>
+                      <span className="meta-card-label">Stade phénologique</span>
+                      <strong className="meta-card-val">{selectedPlant.growthStage}</strong>
+                    </div>
                   </div>
-                ))}
-              </div>
-            </div>
 
-            <button 
-              className="btn-primary-action"
-              style={{ marginTop: '10px' }}
-              onClick={() => setShowHistoryModal(false)}
-            >
-              Fermer le carnet
-            </button>
+                  <div className="meta-card-item">
+                    <div className="meta-icon-box">
+                      <Calendar size={18} />
+                    </div>
+                    <div>
+                      <span className="meta-card-label">Date de mise en terre</span>
+                      <strong className="meta-card-val">{selectedPlant.plantingDate}</strong>
+                    </div>
+                  </div>
+
+                  <div className="meta-card-item">
+                    <div className="meta-icon-box">
+                      <Droplets size={18} />
+                    </div>
+                    <div>
+                      <span className="meta-card-label">Humidité du substrat</span>
+                      <strong className="meta-card-val">{selectedPlant.details.soilMoisture}</strong>
+                    </div>
+                  </div>
+
+                  <div className="meta-card-item">
+                    <div className="meta-icon-box">
+                      <Thermometer size={18} />
+                    </div>
+                    <div>
+                      <span className="meta-card-label">Température mesurée</span>
+                      <strong className="meta-card-val">{selectedPlant.details.temperature}</strong>
+                    </div>
+                  </div>
+
+                  <div className="meta-card-item">
+                    <div className="meta-icon-box">
+                      <TrendingUp size={18} />
+                    </div>
+                    <div>
+                      <span className="meta-card-label">Rendement estimé</span>
+                      <strong className="meta-card-val">{selectedPlant.details.yieldEstimate}</strong>
+                    </div>
+                  </div>
+
+                  <div className="meta-card-item">
+                    <div className="meta-icon-box">
+                      <Clock size={18} />
+                    </div>
+                    <div>
+                      <span className="meta-card-label">Dernière observation</span>
+                      <strong className="meta-card-val">{selectedPlant.lastObservation}</strong>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="meta-notes-box">
+                  <span className="notes-heading">Notes agronomiques générales :</span>
+                  <p>{selectedPlant.details.notes}</p>
+                </div>
+              </div>
+            )}
+
+            {/* Contenu : Carnet de santé & Timeline */}
+            {activeTab === 'history' && (
+              <div className="tab-pane-content">
+                <div className="web-timeline">
+                  {selectedPlant.history?.map((h, i) => (
+                    <div key={i} className="timeline-entry">
+                      <div className="timeline-bullet" />
+                      <div className="timeline-card">
+                        <div className="timeline-top">
+                          <span className="timeline-date">{h.date}</span>
+                          <span className="timeline-badge">{h.type}</span>
+                        </div>
+                        <h4 className="timeline-result">{h.result}</h4>
+                        <p className="timeline-notes">{h.notes}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Contenu : Soins & Arrosage */}
+            {activeTab === 'care' && (
+              <div className="tab-pane-content">
+                <div className="care-tasks-grid">
+                  {selectedPlant.care?.map((c, i) => (
+                    <div key={i} className="care-task-card">
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <Droplets size={18} color="#059669" />
+                        <div>
+                          <strong className="task-name">{c.task}</strong>
+                          <span className="task-freq">Fréquence : {c.frequency}</span>
+                        </div>
+                      </div>
+                      <span className="task-status-pill">{c.status}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Contenu : Observations */}
+            {activeTab === 'observations' && (
+              <div className="tab-pane-content">
+                <div className="observations-list">
+                  {selectedPlant.observations?.map((o, i) => (
+                    <div key={i} className="observation-bubble">
+                      <div className="obs-header">
+                        <strong className="obs-author">{o.author}</strong>
+                        <span className="obs-date">{o.date}</span>
+                      </div>
+                      <p className="obs-text">{o.text}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
-      )}
+      </div>
 
-      {/* Modal Ajouter une Plante */}
+      {/* Modal d'ajout d'une nouvelle plante */}
       {showAddModal && (
         <div className="modal-backdrop" onClick={() => setShowAddModal(false)}>
-          <div className="modal-card" onClick={e => e.stopPropagation()}>
+          <div className="modal-card" onClick={e => e.stopPropagation()} style={{ maxWidth: '520px' }}>
             <div className="modal-header">
-              <h3 className="modal-title">Ajouter une plante au dossier</h3>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Sprout color="#10b981" />
+                <h3 className="modal-title">Enregistrer une nouvelle culture</h3>
+              </div>
               <button className="screen-app-btn-icon" onClick={() => setShowAddModal(false)}>✕</button>
             </div>
 
-            <form onSubmit={handleAddPlant} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <form onSubmit={handleAddPlant} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <div className="form-group">
-                <label className="form-label">Nom du plant / planche</label>
+                <label className="form-label">Nom usuel de la plante *</label>
                 <input 
                   type="text" 
                   className="form-input" 
-                  placeholder="Ex: Plante 4 (Piment rouge)"
+                  placeholder="Ex: Plante 4 / Tomate Cœur de Bœuf"
                   value={newPlantName}
-                  onChange={(e) => setNewPlantName(e.target.value)}
-                  required 
+                  onChange={e => setNewPlantName(e.target.value)}
+                  required
                 />
               </div>
 
               <div className="form-group">
-                <label className="form-label">Espèce</label>
+                <label className="form-label">Espèce botanique</label>
                 <select 
                   className="form-input"
                   value={newPlantSpecies}
-                  onChange={(e) => setNewPlantSpecies(e.target.value)}
+                  onChange={e => setNewPlantSpecies(e.target.value)}
                 >
-                  <option value="Tomate">Tomate (Solanum lycopersicum)</option>
-                  <option value="Aubergine">Aubergine (Solanum melongena)</option>
-                  <option value="Piment">Piment (Capsicum)</option>
-                  <option value="Gombo">Gombo (Abelmoschus esculentus)</option>
-                  <option value="Oignon">Oignon (Allium cepa)</option>
+                  <option value="Tomate (Solanum lycopersicum)">Tomate (Solanum lycopersicum)</option>
+                  <option value="Aubergine (Solanum melongena)">Aubergine (Solanum melongena)</option>
+                  <option value="Piment (Capsicum annuum)">Piment (Capsicum annuum)</option>
+                  <option value="Poivron (Capsicum annuum)">Poivron (Capsicum annuum)</option>
+                  <option value="Manioc (Manihot esculenta)">Manioc (Manihot esculenta)</option>
                 </select>
               </div>
 
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <div className="form-group">
+                  <label className="form-label">Variété</label>
+                  <input 
+                    type="text" 
+                    className="form-input" 
+                    value={newPlantVariety}
+                    onChange={e => setNewPlantVariety(e.target.value)}
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Parcelle / Serre</label>
+                  <input 
+                    type="text" 
+                    className="form-input" 
+                    value={newPlantPlot}
+                    onChange={e => setNewPlantPlot(e.target.value)}
+                  />
+                </div>
+              </div>
+
               <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
-                <button type="submit" className="btn-primary-action" style={{ flex: 1 }}>
-                  Enregistrer la plante
+                <button type="submit" className="web-btn-primary" style={{ flex: 1 }}>
+                  Confirmer et créer la fiche
                 </button>
                 <button 
                   type="button" 

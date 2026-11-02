@@ -7,8 +7,16 @@ import {
   VolumeX, 
   Bell, 
   ChevronRight, 
-  Sparkles,
-  Leaf
+  Sparkles, 
+  Leaf,
+  Camera,
+  FolderHeart,
+  ArrowRight,
+  ShieldAlert,
+  AlertTriangle,
+  Cpu,
+  CheckCircle2,
+  HelpCircle
 } from 'lucide-react';
 import { 
   ASSISTANT_LANGUAGES, 
@@ -17,33 +25,42 @@ import {
 } from '../data/mockData';
 import { askOctopusAssistant } from '../services/octopusApi';
 
-export default function VoiceAssistantScreen({ onAlertClick }) {
+export default function VoiceAssistantScreen({ 
+  initialQuery = '', 
+  onClearInitialQuery,
+  onNavigateToScan, 
+  onNavigateToPlants, 
+  onOpenOctopusConfig 
+}) {
   const [currentLang, setCurrentLang] = useState('fr'); // 'fr' | 'wo' | 'en'
   const [messages, setMessages] = useState(INITIAL_CHAT_MESSAGES.fr);
   const [inputText, setInputText] = useState('');
   const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [waveformActive, setWaveformActive] = useState(false);
-  const [showAlertModal, setShowAlertModal] = useState(false);
 
   const chatBottomRef = useRef(null);
 
-  // Synchronisation lors du changement de langue
   useEffect(() => {
     setMessages(INITIAL_CHAT_MESSAGES[currentLang] || INITIAL_CHAT_MESSAGES.fr);
   }, [currentLang]);
 
   useEffect(() => {
+    if (initialQuery && initialQuery.trim()) {
+      sendMessage(initialQuery);
+      if (onClearInitialQuery) onClearInitialQuery();
+    }
+  }, [initialQuery]);
+
+  useEffect(() => {
     chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, waveformActive]);
 
-  // Synthèse vocale du navigateur si supportée
   const speakText = (text) => {
     if (!('speechSynthesis' in window)) return;
     window.speechSynthesis.cancel();
 
     const utterance = new SpeechSynthesisUtterance(text);
-    // Wolof n'a pas de voix TTS native standard dans les navigateurs, on fallback sur français avec accent
     utterance.lang = currentLang === 'en' ? 'en-US' : 'fr-FR';
     utterance.rate = 0.95;
 
@@ -63,12 +80,10 @@ export default function VoiceAssistantScreen({ onAlertClick }) {
     window.speechSynthesis.speak(utterance);
   };
 
-  // Reconnaissance vocale (Speech to text)
   const toggleListening = () => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
     if (!SpeechRecognition) {
-      // Fallback si l'API n'est pas supportée dans ce navigateur
       handleSendSimulatedVoice();
       return;
     }
@@ -100,7 +115,6 @@ export default function VoiceAssistantScreen({ onAlertClick }) {
       recognition.onerror = () => {
         setIsListening(false);
         setWaveformActive(false);
-        // Simulation gracieuse
         handleSendSimulatedVoice();
       };
 
@@ -114,7 +128,6 @@ export default function VoiceAssistantScreen({ onAlertClick }) {
     }
   };
 
-  // Envoi d'une question simulée adaptée à la langue choisie
   const handleSendSimulatedVoice = () => {
     setIsListening(true);
     setWaveformActive(true);
@@ -142,7 +155,6 @@ export default function VoiceAssistantScreen({ onAlertClick }) {
     setInputText('');
     setWaveformActive(true);
 
-    // Réponse de l'Agent Octopus
     try {
       const botReply = await askOctopusAssistant(query, currentLang);
       setMessages(prev => [
@@ -155,7 +167,6 @@ export default function VoiceAssistantScreen({ onAlertClick }) {
           hasAudio: true
         }
       ]);
-      // Jouer la synthèse vocale
       speakText(botReply.text);
     } catch {
       setWaveformActive(false);
@@ -163,169 +174,293 @@ export default function VoiceAssistantScreen({ onAlertClick }) {
   };
 
   return (
-    <div className="screen-scroll-body" id="voice-screen-container">
-      {/* Flux de conversation */}
-      <div className="chat-conversation-feed">
-        {messages.map((msg) => (
-          msg.sender === 'user' ? (
-            <div key={msg.id} className="chat-bubble-user">
-              {msg.text}
-            </div>
-          ) : (
-            <div key={msg.id} className="chat-bubble-bot-row">
-              <div className="bot-avatar-leaf">
-                <Leaf size={16} />
+    <div className="web-page-container">
+      {/* En-tête de page du site web */}
+      <div className="web-page-header">
+        <div>
+          <div className="web-breadcrumb">
+            <span>Accueil</span>
+            <span>/</span>
+            <span className="current">Assistant vocal & alertes</span>
+          </div>
+          <h1 className="web-page-title">
+            Assistant Agronome Intelligent & Tour de Contrôle
+          </h1>
+          <p className="web-page-subtitle">
+            Échangez par la voix ou par écrit avec l'IA experte en pathologie végétale. Disponible en Français, Wolof et Anglais avec synthèse vocale.
+          </p>
+        </div>
+
+        {/* Sélecteur de langue Web */}
+        <div className="web-lang-selector-card">
+          <span className="lang-label">Langue de l'IA :</span>
+          <div className="lang-buttons-group">
+            {ASSISTANT_LANGUAGES.map((lang) => (
+              <button 
+                key={lang.code}
+                type="button"
+                className={`web-lang-btn ${currentLang === lang.code ? 'active' : ''}`}
+                onClick={() => setCurrentLang(lang.code)}
+              >
+                <span>{lang.flag}</span>
+                <span>{lang.name}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Grille principale 2 colonnes du site web */}
+      <div className="web-assistant-grid">
+        {/* =========================================================
+            COLONNE GAUCHE : INTERFACE DE DISCUSSION & AUDIO
+            ========================================================= */}
+        <div className="web-card web-chat-main-card">
+          <div className="chat-card-top-bar">
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div className="bot-status-avatar">
+                <Leaf size={20} />
               </div>
-              <div className="chat-bubble-bot">
-                {msg.text}
-                {msg.hasAudio && (
+              <div>
+                <h3 className="chat-bot-name">PhytoScan Agronome IA</h3>
+                <span className="chat-bot-status">● Modèle connecté (Octopus Knowledge Base)</span>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span className="audio-voice-badge">
+                <Volume2 size={14} /> Voix active
+              </span>
+            </div>
+          </div>
+
+          {/* Flux de discussion défilant */}
+          <div className="web-chat-feed">
+            {messages.map((msg) => (
+              msg.sender === 'user' ? (
+                <div key={msg.id} className="web-chat-bubble-user-row">
+                  <div className="web-chat-bubble-user">
+                    <p>{msg.text}</p>
+                    <span className="bubble-timestamp">{msg.timestamp}</span>
+                  </div>
+                </div>
+              ) : (
+                <div key={msg.id} className="web-chat-bubble-bot-row">
+                  <div className="web-bot-avatar">
+                    <Leaf size={16} />
+                  </div>
+                  <div className="web-chat-bubble-bot">
+                    <p>{msg.text}</p>
+                    <div className="bubble-bot-footer">
+                      <span className="bubble-timestamp">{msg.timestamp}</span>
+                      {msg.hasAudio && (
+                        <button 
+                          type="button" 
+                          className="web-btn-listen"
+                          onClick={() => speakText(msg.text)}
+                        >
+                          <Volume2 size={13} />
+                          <span>Réécouter la réponse</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )
+            ))}
+            <div ref={chatBottomRef} />
+          </div>
+
+          {/* Visualisation Waveform Audio */}
+          <div className={`web-waveform-box ${waveformActive || isListening || isSpeaking ? 'active' : ''}`}>
+            <span className="waveform-info-txt">
+              {isListening ? "Écoute de votre voix en cours..." : isSpeaking ? "Lecture de la réponse en cours..." : "Microphone prêt"}
+            </span>
+            <div className="web-waveform-bars">
+              <div className="web-wave-bar" />
+              <div className="web-wave-bar" />
+              <div className="web-wave-bar" />
+              <div className="web-wave-bar" />
+              <div className="web-wave-bar" />
+              <div className="web-wave-bar" />
+              <div className="web-wave-bar" />
+              <div className="web-wave-bar" />
+              <div className="web-wave-bar" />
+            </div>
+          </div>
+
+          {/* Barre d'interaction micro + texte */}
+          <div className="web-chat-input-section">
+            <div className="web-input-bar">
+              <button 
+                type="button" 
+                className={`web-btn-mic-toggle ${isListening ? 'listening' : ''}`}
+                onClick={toggleListening}
+                title={isListening ? "Arrêter l'écoute" : "Poser une question vocale"}
+              >
+                {isListening ? <MicOff size={22} /> : <Mic size={22} />}
+              </button>
+
+              <form 
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (inputText.trim()) sendMessage(inputText);
+                }} 
+                style={{ flex: 1, display: 'flex', gap: '8px' }}
+              >
+                <input 
+                  type="text" 
+                  className="web-chat-text-input"
+                  placeholder="Posez une question sur vos cultures, maladies, traitements bio..."
+                  value={inputText}
+                  onChange={(e) => setInputText(e.target.value)}
+                />
+
+                <button 
+                  type="submit" 
+                  className="web-btn-send-message"
+                  disabled={!inputText.trim()}
+                  title="Envoyer"
+                >
+                  <Send size={18} />
+                </button>
+              </form>
+            </div>
+
+            {/* Questions fréquentes en badges */}
+            <div className="web-suggested-questions">
+              <span className="suggested-heading">Questions suggérées ({currentLang.toUpperCase()}) :</span>
+              <div className="suggested-chips-wrap">
+                {(SAMPLE_QUESTIONS[currentLang] || SAMPLE_QUESTIONS.fr).map((q, i) => (
+                  <button 
+                    key={i}
+                    type="button" 
+                    className="web-suggested-chip"
+                    onClick={() => sendMessage(q)}
+                  >
+                    💬 {q}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* =========================================================
+            COLONNE DROITE : TOUR DE CONTRÔLE DES ALERTES
+            ========================================================= */}
+        <div className="web-assistant-sidebar">
+          {/* Centre des alertes phytosanitaires */}
+          <div className="web-card web-alerts-card">
+            <div className="alerts-card-header">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Bell size={20} color="#e11d48" />
+                <h3 style={{ margin: 0 }}>Alertes Phytosanitaires en direct</h3>
+              </div>
+              <span className="urgent-badge-pill">2 alertes actives</span>
+            </div>
+
+            <div className="alerts-list">
+              {/* Alerte 1 : Plante 2 / Oïdium */}
+              <div className="web-alert-item danger">
+                <div className="alert-item-top">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <ShieldAlert size={16} color="#e11d48" />
+                    <strong>Plante 2 (Aubergine) — Parcelle B1</strong>
+                  </div>
+                  <span className="alert-time">Aujourd'hui, 10:24</span>
+                </div>
+                <p className="alert-item-desc">
+                  Présence d'oïdium sur la canopée basse. Risque élevé de propagation sous l'effet de l'humidité relative (82%). Traitement fongicide recommandé sous 24h.
+                </p>
+                <div className="alert-item-actions">
                   <button 
                     type="button" 
-                    onClick={() => speakText(msg.text)}
-                    style={{ 
-                      display: 'flex', 
-                      alignItems: 'center', 
-                      gap: '4px', 
-                      background: 'none', 
-                      border: 'none', 
-                      color: '#10875a', 
-                      fontSize: '0.72rem', 
-                      fontWeight: 700, 
-                      cursor: 'pointer', 
-                      marginTop: '6px' 
-                    }}
+                    className="web-alert-btn-action primary"
+                    onClick={() => onNavigateToPlants && onNavigateToPlants({ plantId: 'P-002' })}
                   >
-                    <Volume2 size={13} />
-                    <span>Écouter la réponse</span>
+                    <FolderHeart size={14} />
+                    <span>Consulter le dossier de la plante</span>
                   </button>
-                )}
+                  <button 
+                    type="button" 
+                    className="web-alert-btn-action secondary"
+                    onClick={() => onNavigateToScan && onNavigateToScan({ targetPlant: { id: 'P-002', name: 'Plante 2', species: 'Aubergine', plot: 'Parcelle B1' } })}
+                  >
+                    <Camera size={14} />
+                    <span>Faire un scan de contrôle</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Alerte 2 : Vigilance Météo / Risque mildiou */}
+              <div className="web-alert-item warning">
+                <div className="alert-item-top">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <AlertTriangle size={16} color="#d97706" />
+                    <strong>Vigilance Météo & Risque Mildiou</strong>
+                  </div>
+                  <span className="alert-time">Hier, 17:00</span>
+                </div>
+                <p className="alert-item-desc">
+                  Conditions orageuses prévues sur le secteur. Pensez à aérer les serres et à espacer les arrosages pour éviter l'eau stagnante sur les feuilles de tomate.
+                </p>
               </div>
             </div>
-          )
-        ))}
-        <div ref={chatBottomRef} />
-      </div>
-
-      {/* Visualisation audio Waveform (comme sur l'image) */}
-      <div className={`waveform-container ${waveformActive || isListening || isSpeaking ? 'waveform-animating' : ''}`}>
-        <div className="waveform-bar" />
-        <div className="waveform-bar" />
-        <div className="waveform-bar" />
-        <div className="waveform-bar" />
-        <div className="waveform-bar" />
-        <div className="waveform-bar" />
-        <div className="waveform-bar" />
-      </div>
-
-      {/* Grand Bouton Microphone tactile */}
-      <div className="mic-action-container">
-        <button 
-          type="button" 
-          className={`btn-mic-circle ${isListening ? 'listening' : ''}`}
-          onClick={toggleListening}
-          title={isListening ? "Écoute en cours..." : "Appuyer pour poser une question vocale"}
-        >
-          {isListening ? <MicOff size={28} /> : <Mic size={28} />}
-        </button>
-      </div>
-
-      <div style={{ textAlign: 'center', fontSize: '0.76rem', color: '#64748b' }}>
-        {isListening ? "Écoute de votre voix..." : "Touchez le micro pour parler ou posez une question"}
-      </div>
-
-      {/* Sélecteur de Langue (Français 🇫🇷, Wolof 🇸🇳, English 🇬🇧) */}
-      <div className="languages-selector-row">
-        {ASSISTANT_LANGUAGES.map((lang) => (
-          <button 
-            key={lang.code}
-            type="button"
-            className={`lang-pill-btn ${currentLang === lang.code ? 'active' : ''}`}
-            onClick={() => setCurrentLang(lang.code)}
-          >
-            <span>{lang.flag}</span>
-            <span>{lang.name}</span>
-          </button>
-        ))}
-      </div>
-
-      {/* Questions suggérées en boutons rapides */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-        <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#64748b' }}>
-          Questions fréquentes ({currentLang.toUpperCase()}) :
-        </span>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-          {(SAMPLE_QUESTIONS[currentLang] || SAMPLE_QUESTIONS.fr).slice(0, 2).map((q, i) => (
-            <button 
-              key={i}
-              type="button"
-              className="btn-pill-glass"
-              style={{ background: '#f1f5f9', color: '#334155', border: '1px solid #e2e8f0', fontSize: '0.72rem' }}
-              onClick={() => sendMessage(q)}
-            >
-              💬 {q}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Carte Notification d'Alerte (comme sur le mockup) */}
-      <div 
-        className="alert-urgent-card"
-        onClick={() => setShowAlertModal(true)}
-        title="Voir l'alerte phytosanitaire d'urgence"
-      >
-        <div className="alert-icon-bell">
-          <Bell size={16} />
-        </div>
-        <div className="alert-content-box">
-          <div className="alert-title-row">
-            <span className="alert-badge-label">Alerte</span>
-            <ChevronRight size={14} color="#f43f5e" />
           </div>
-          <p className="alert-text-body">
-            La plante 2 nécessite un traitement fongicide. Intervention recommandée dans les 24h.
-          </p>
-          <span className="alert-time-tag">Aujourd'hui, 10:24</span>
-        </div>
-      </div>
 
-      {/* Modal Détails Alerte */}
-      {showAlertModal && (
-        <div className="modal-backdrop" onClick={() => setShowAlertModal(false)}>
-          <div className="modal-card" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Bell color="#e11d48" />
-                <h3 className="modal-title" style={{ color: '#9f1239' }}>Alerte Phytosanitaire Urgente</h3>
-              </div>
-              <button className="screen-app-btn-icon" onClick={() => setShowAlertModal(false)}>✕</button>
+          {/* Raccourcis d'actions agronomiques */}
+          <div className="web-card web-shortcuts-card">
+            <h4>Raccourcis rapides de la plateforme</h4>
+            <div className="web-shortcuts-list">
+              <button 
+                type="button" 
+                className="web-shortcut-item"
+                onClick={() => onNavigateToScan && onNavigateToScan()}
+              >
+                <div className="shortcut-icon green">
+                  <Camera size={18} />
+                </div>
+                <div>
+                  <strong>Nouveau diagnostic par Scan</strong>
+                  <span>Analyser une feuille par vision IA</span>
+                </div>
+                <ArrowRight size={15} style={{ marginLeft: 'auto', color: '#94a3b8' }} />
+              </button>
+
+              <button 
+                type="button" 
+                className="web-shortcut-item"
+                onClick={() => onNavigateToPlants && onNavigateToPlants()}
+              >
+                <div className="shortcut-icon blue">
+                  <FolderHeart size={18} />
+                </div>
+                <div>
+                  <strong>Carnet de santé des cultures</strong>
+                  <span>Gérer vos parcelles et historiques</span>
+                </div>
+                <ArrowRight size={15} style={{ marginLeft: 'auto', color: '#94a3b8' }} />
+              </button>
+
+              <button 
+                type="button" 
+                className="web-shortcut-item"
+                onClick={onOpenOctopusConfig}
+              >
+                <div className="shortcut-icon purple">
+                  <Cpu size={18} />
+                </div>
+                <div>
+                  <strong>Agent IA Octopus</strong>
+                  <span>Régler l'adresse API et le modèle</span>
+                </div>
+                <ArrowRight size={15} style={{ marginLeft: 'auto', color: '#94a3b8' }} />
+              </button>
             </div>
-
-            <div style={{ fontSize: '0.86rem', color: '#334155', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <p>
-                <strong>Cible :</strong> Plante 2 (Aubergine) — Parcelle B1.
-              </p>
-              <p>
-                <strong>Diagnostic Octopus :</strong> Foyers d'oïdium en phase de sporulation détectés sur la canopée basse. Taux d'humidité actuel de 82% favorisant la contamination des plants voisins.
-              </p>
-              <p>
-                <strong>Plan d'intervention préconisé :</strong>
-                <br />1. Éliminer les premières feuilles jaunies à la base.
-                <br />2. Pulvériser un mélange d'eau, savon noir et bicarbonate de soude ou soufre mouillable.
-                <br />3. Espacer les rangs pour favoriser la ventilation naturelle.
-              </p>
-            </div>
-
-            <button 
-              className="btn-primary-action" 
-              style={{ background: '#be123c' }}
-              onClick={() => setShowAlertModal(false)}
-            >
-              Marquer comme prise en compte
-            </button>
           </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }
