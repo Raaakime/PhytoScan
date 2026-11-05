@@ -366,7 +366,7 @@ export async function askOctopusAssistant(question, language = "fr", context = {
         body: JSON.stringify({ question, language, context })
       });
       if (response.ok) return await response.json();
-    } catch (e) {
+    } catch {
       console.warn("Octopus Live Assistant unreachable, fallback to smart simulation");
     }
   }

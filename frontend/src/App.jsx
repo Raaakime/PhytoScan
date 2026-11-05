@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import Header from './components/Header';
 import ScanScreen from './components/ScanScreen';
 import PlantRecordsScreen from './components/PlantRecordsScreen';
@@ -139,6 +139,7 @@ export default function App() {
       case 'scan':
         return (
           <ScanScreen 
+            plants={plantsList}
             onNavigateToPlants={(params) => navigateTo('plants', params)}
             onNavigateToAssistant={(params) => navigateTo('assistant', params)}
             targetPlant={navigationParams?.targetPlant}

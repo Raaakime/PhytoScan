@@ -2682,6 +2682,57 @@ body {
 /* --------------------------------------------------------------------------
    Voice Assistant Screen Web Layout
    -------------------------------------------------------------------------- */
+.web-lang-selector-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #ffffff;
+  padding: 8px 16px;
+  border-radius: 16px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 2px 8px rgba(15, 56, 42, 0.04);
+}
+
+.lang-label {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #475569;
+}
+
+.lang-buttons-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.web-lang-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 20px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  color: #334155;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.web-lang-btn:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
+.web-lang-btn.active {
+  background: #ecfdf5;
+  border-color: #10b981;
+  color: #065f46;
+  font-weight: 700;
+}
+
 .web-assistant-grid {
   display: grid;
   grid-template-columns: 7fr 5fr;
@@ -3250,40 +3301,521 @@ body {
 }
 
 /* --------------------------------------------------------------------------
-   Responsive Adaptations
+   Responsive Adaptations & Mobile-First Optimization
    -------------------------------------------------------------------------- */
+
+/* Safe-area insets & media sizing */
+html, body {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+img, video, canvas {
+  max-width: 100%;
+  height: auto;
+}
+
 @media (max-width: 1100px) {
   .web-scan-grid,
   .web-plants-grid,
   .web-assistant-grid {
     grid-template-columns: 1fr;
+    gap: 24px;
   }
+
+  .web-footer-features-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 18px;
+  }
+
+  .web-meta-cards-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .web-navbar-container {
+    padding: 12px 20px;
+    gap: 16px;
+  }
+
+  .web-page-container {
+    padding: 0 20px;
+  }
+}
+
+@media (max-width: 900px) {
   .web-footer-features-grid {
     grid-template-columns: 1fr;
+    gap: 16px;
   }
-  .web-meta-cards-grid {
-    grid-template-columns: 1fr 1fr;
+
+  .web-nav-item {
+    padding: 8px 14px;
+    font-size: 0.86rem;
   }
 }
 
 @media (max-width: 768px) {
+  /* Navbar */
   .web-navbar-container {
     flex-direction: column;
     align-items: stretch;
+    padding: 12px 16px;
+    gap: 12px;
   }
+
+  .web-brand-block {
+    justify-content: flex-start;
+  }
+
+  .web-navbar-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    gap: 10px;
+  }
+
+  .web-btn-octopus {
+    flex: 1;
+    justify-content: center;
+    font-size: 0.8rem;
+    padding: 8px 12px;
+  }
+
+  .web-btn-back {
+    padding: 8px 12px;
+    font-size: 0.8rem;
+  }
+
   .web-nav-links {
+    display: flex;
+    width: 100%;
     overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    gap: 6px;
+    padding: 4px;
   }
+
+  .web-nav-links::-webkit-scrollbar {
+    display: none;
+  }
+
+  .web-nav-item {
+    flex-shrink: 0;
+    padding: 8px 14px;
+    font-size: 0.82rem;
+    white-space: nowrap;
+  }
+
+  /* Main layout */
+  .website-main-content {
+    padding: 20px 0 44px;
+  }
+
+  .web-page-container {
+    padding: 0 16px;
+  }
+
+  .web-page-header {
+    margin-bottom: 20px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 14px;
+  }
+
   .web-page-title {
-    font-size: 1.7rem;
+    font-size: 1.6rem;
   }
+
+  .web-page-subtitle {
+    font-size: 0.92rem;
+  }
+
+  .web-card {
+    padding: 18px;
+    border-radius: 16px;
+  }
+
+  .web-btn-primary {
+    width: 100%;
+    justify-content: center;
+    padding: 12px 18px;
+  }
+
+  /* Scan Screen */
+  .web-scan-grid {
+    gap: 20px;
+  }
+
+  .web-target-plant-card {
+    width: 100%;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .viewfinder-actions-toolbar {
+    flex-direction: row;
+    gap: 8px;
+  }
+
+  .web-toolbar-btn {
+    padding: 10px 12px;
+    font-size: 0.82rem;
+  }
+
   .web-action-buttons-group,
   .plant-dossier-actions-bar,
   .web-comparison-grid,
   .pathogen-specs-grid,
   .care-tasks-grid {
     grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .web-action-btn {
+    padding: 12px 14px;
+  }
+
+  .btn-main-txt {
+    font-size: 0.88rem;
+  }
+
+  .btn-sub-txt {
+    font-size: 0.76rem;
+  }
+
+  .web-btn-save-record {
+    padding: 12px 16px;
+    font-size: 0.86rem;
+    text-align: center;
+    justify-content: center;
+  }
+
+  .web-comparison-item img {
+    height: 180px;
+  }
+
+  /* Plant Records Screen */
+  .plants-sidebar-card {
+    gap: 12px;
+  }
+
+  .web-plants-list {
+    max-height: 240px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+  }
+
+  .web-plant-list-item {
+    padding: 10px 12px;
+    gap: 10px;
+  }
+
+  .item-avatar-img {
+    width: 46px;
+    height: 46px;
+  }
+
+  .plant-hero-content-row {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 16px;
+  }
+
+  .plant-hero-web-img {
+    width: 110px;
+    height: 110px;
+    margin: 0 auto;
+    border-radius: 16px;
+  }
+
+  .plant-display-title {
+    font-size: 1.5rem;
+  }
+
+  .plant-display-species {
+    font-size: 0.88rem;
+  }
+
+  .web-plant-alert-banner {
+    flex-direction: column;
+    align-items: stretch;
+    text-align: left;
+    gap: 12px;
+  }
+
+  .web-plant-alert-banner > div:last-child {
+    flex-direction: column;
+    width: 100%;
+    margin-left: 0 !important;
+    gap: 8px;
+  }
+
+  .web-btn-chip-action {
+    width: 100%;
+    justify-content: center;
+    padding: 9px 14px;
+  }
+
+  .web-tabs-header {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    gap: 4px;
+    padding-bottom: 2px;
+  }
+
+  .web-tabs-header::-webkit-scrollbar {
+    display: none;
+  }
+
+  .web-tab-nav-btn {
+    flex-shrink: 0;
+    padding: 10px 14px;
+    font-size: 0.82rem;
+  }
+
+  .web-meta-cards-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  /* Voice Assistant Screen */
+  .web-lang-selector-card {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    width: 100%;
+    padding: 10px 14px;
+  }
+
+  .lang-buttons-group {
+    width: 100%;
+    display: flex;
+    gap: 6px;
+  }
+
+  .web-lang-btn {
+    flex: 1;
+    justify-content: center;
+    font-size: 0.78rem;
+    padding: 7px 8px;
+  }
+
+  .chat-card-top-bar {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .web-chat-feed {
+    height: 380px;
+    padding: 14px;
+    gap: 12px;
+  }
+
+  .web-chat-bubble-user {
+    max-width: 90%;
+    font-size: 0.88rem;
+    padding: 10px 14px;
+  }
+
+  .web-chat-bubble-bot-row {
+    max-width: 100%;
+    gap: 8px;
+  }
+
+  .web-chat-bubble-bot {
+    font-size: 0.88rem;
+    padding: 12px 14px;
+  }
+
+  .web-waveform-box {
+    padding: 8px 12px;
+  }
+
+  .waveform-info-txt {
+    font-size: 0.76rem;
+  }
+
+  .web-input-bar {
+    gap: 8px;
+  }
+
+  .web-btn-mic-toggle {
+    width: 44px;
+    height: 44px;
+  }
+
+  .web-btn-send {
+    width: 44px;
+    height: 44px;
+  }
+
+  .web-chat-text-input {
+    padding: 10px 14px;
+    font-size: 0.88rem;
+  }
+
+  .web-assistant-sidebar {
+    gap: 16px;
+  }
+
+  /* Footer */
+  .web-footer {
+    padding: 40px 0 24px;
+  }
+
+  .web-footer-container {
+    padding: 0 16px;
+  }
+
+  .web-footer-bottom-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 20px;
+  }
+
+  .web-footer-links {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+    width: 100%;
+  }
+
+  .web-footer-links button {
+    text-align: left;
+    padding: 4px 0;
+  }
+
+  .web-footer-copyright {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    text-align: left;
+  }
+
+  /* Modals */
+  .modal-backdrop {
+    padding: 12px;
+  }
+
+  .modal-card {
+    padding: 18px;
+    border-radius: 16px;
+    max-height: 92vh;
+    overflow-y: auto;
   }
 }
+
+@media (max-width: 540px) {
+  .viewfinder-actions-toolbar {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .web-toolbar-btn {
+    width: 100%;
+  }
+
+  .web-quick-tests-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+  }
+
+  .web-btn-chip-sample {
+    width: 100%;
+    text-align: center;
+    justify-content: center;
+  }
+
+  .result-header-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .diagnosis-meta-badges {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+}
+
+@media (max-width: 480px) {
+  .web-brand-subtitle {
+    display: none;
+  }
+
+  .web-brand-title {
+    font-size: 1.22rem;
+  }
+
+  .web-brand-logo {
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+  }
+
+  .web-navbar-container {
+    padding: 10px 12px;
+    gap: 8px;
+  }
+
+  .web-page-container {
+    padding: 0 12px;
+  }
+
+  .web-page-title {
+    font-size: 1.35rem;
+  }
+
+  .web-page-subtitle {
+    font-size: 0.84rem;
+  }
+
+  .web-card {
+    padding: 14px;
+    border-radius: 14px;
+  }
+
+  .meta-card-item {
+    padding: 10px;
+    gap: 10px;
+  }
+
+  .meta-icon-box {
+    width: 34px;
+    height: 34px;
+  }
+
+  .item-name {
+    font-size: 0.88rem;
+  }
+
+  .item-species {
+    font-size: 0.76rem;
+  }
+
+  .plant-display-title {
+    font-size: 1.35rem;
+  }
+
+  .health-score-inline-bar {
+    padding: 8px 12px;
+  }
+
+  .timeline-entry {
+    padding-left: 20px;
+  }
+
+  .timeline-card {
+    padding: 12px;
+  }
+}
+
 
 

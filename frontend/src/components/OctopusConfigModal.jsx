@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Cpu, Check, AlertCircle, Save, RefreshCw } from 'lucide-react';
 import { getOctopusConfig, saveOctopusConfig } from '../services/octopusApi';
 

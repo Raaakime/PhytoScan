@@ -1,27 +1,20 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   Search, 
-  SlidersHorizontal, 
   Calendar, 
   Clock, 
   Sprout, 
   Activity, 
   Plus, 
-  ChevronRight, 
-  Check, 
   AlertCircle, 
   FileText, 
-  HeartPulse, 
   Camera, 
   Mic, 
   ArrowRight,
   Droplets,
   Thermometer,
-  Layers,
   MapPin,
-  TrendingUp,
-  ShieldCheck,
-  CheckCircle2
+  TrendingUp
 } from 'lucide-react';
 import { INITIAL_PLANTS } from '../data/mockData';
 
@@ -56,7 +49,7 @@ export default function PlantRecordsScreen({
     }
   }, [plants]);
 
-  const selectedPlant = plantList.find(p => p.id === selectedPlantId) || plantList[0];
+  const selectedPlant = plantList.find(p => p.id === selectedPlantId) || plantList[0] || null;
 
   const filteredPlants = plantList.filter(p => 
     p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -174,7 +167,7 @@ export default function PlantRecordsScreen({
             {filteredPlants.map((plant) => (
               <div 
                 key={plant.id} 
-                className={`web-plant-list-item ${selectedPlant.id === plant.id ? 'active' : ''}`}
+                className={`web-plant-list-item ${selectedPlant?.id === plant.id ? 'active' : ''}`}
                 onClick={() => setSelectedPlantId(plant.id)}
               >
                 <img src={plant.image} alt={plant.name} className="item-avatar-img" />
@@ -202,6 +195,25 @@ export default function PlantRecordsScreen({
             COLONNE DROITE : FICHE AGRONOMIQUE DÉTAILLÉE
             ========================================================= */}
         <div className="web-plant-main-dossier">
+          {!selectedPlant ? (
+            <div className="web-card" style={{ padding: '48px 24px', textAlign: 'center', color: '#64748b' }}>
+              <Sprout size={48} color="#10b981" style={{ margin: '0 auto 16px', display: 'block' }} />
+              <h3 style={{ fontSize: '1.2rem', color: '#1e293b', marginBottom: '8px' }}>Aucune culture sélectionnée</h3>
+              <p style={{ maxWidth: '420px', margin: '0 auto 20px', fontSize: '0.9rem' }}>
+                Sélectionnez une plante dans la liste de gauche ou ajoutez-en une nouvelle pour consulter son carnet agronomique complet.
+              </p>
+              <button 
+                type="button" 
+                className="web-btn-primary"
+                style={{ margin: '0 auto' }}
+                onClick={() => setShowAddModal(true)}
+              >
+                <Plus size={16} />
+                <span>Enregistrer une nouvelle culture</span>
+              </button>
+            </div>
+          ) : (
+            <>
           {/* Hero Banner de la plante sélectionnée */}
           <div className="web-card plant-hero-web-card">
             <div className="plant-hero-content-row">
@@ -385,7 +397,7 @@ export default function PlantRecordsScreen({
                     </div>
                     <div>
                       <span className="meta-card-label">Humidité du substrat</span>
-                      <strong className="meta-card-val">{selectedPlant.details.soilMoisture}</strong>
+                      <strong className="meta-card-val">{selectedPlant.details?.soilMoisture || 'N/A'}</strong>
                     </div>
                   </div>
 
@@ -395,7 +407,7 @@ export default function PlantRecordsScreen({
                     </div>
                     <div>
                       <span className="meta-card-label">Température mesurée</span>
-                      <strong className="meta-card-val">{selectedPlant.details.temperature}</strong>
+                      <strong className="meta-card-val">{selectedPlant.details?.temperature || 'N/A'}</strong>
                     </div>
                   </div>
 
@@ -405,7 +417,7 @@ export default function PlantRecordsScreen({
                     </div>
                     <div>
                       <span className="meta-card-label">Rendement estimé</span>
-                      <strong className="meta-card-val">{selectedPlant.details.yieldEstimate}</strong>
+                      <strong className="meta-card-val">{selectedPlant.details?.yieldEstimate || 'N/A'}</strong>
                     </div>
                   </div>
 
@@ -415,14 +427,14 @@ export default function PlantRecordsScreen({
                     </div>
                     <div>
                       <span className="meta-card-label">Dernière observation</span>
-                      <strong className="meta-card-val">{selectedPlant.lastObservation}</strong>
+                      <strong className="meta-card-val">{selectedPlant.lastObservation || 'N/A'}</strong>
                     </div>
                   </div>
                 </div>
 
                 <div className="meta-notes-box">
                   <span className="notes-heading">Notes agronomiques générales :</span>
-                  <p>{selectedPlant.details.notes}</p>
+                  <p>{selectedPlant.details?.notes || 'Aucune note particulière.'}</p>
                 </div>
               </div>
             )}
@@ -485,6 +497,8 @@ export default function PlantRecordsScreen({
               </div>
             )}
           </div>
+            </>
+          )}
         </div>
       </div>
 

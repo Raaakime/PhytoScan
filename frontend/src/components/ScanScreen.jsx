@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { 
   Camera, 
   Upload, 
@@ -18,6 +18,7 @@ import {
 import { analyzePlantImage } from '../services/octopusApi';
 
 export default function ScanScreen({ 
+  plants = [],
   onNavigateToPlants, 
   onNavigateToAssistant, 
   targetPlant,
@@ -437,7 +438,7 @@ export default function ScanScreen({
                   type="button" 
                   className="web-action-btn plants"
                   onClick={() => onNavigateToPlants && onNavigateToPlants({
-                    plantId: targetPlant ? targetPlant.id : 'P-003',
+                    plantId: targetPlant ? targetPlant.id : (plants?.[0]?.id || 'P-001'),
                     disease: analysisResult.diseaseName
                   })}
                 >
@@ -473,7 +474,7 @@ export default function ScanScreen({
                   setHasSavedDiagnostic(true);
                   if (onSaveDiagnosticToPlant) {
                     onSaveDiagnosticToPlant({
-                      plantId: targetPlant ? targetPlant.id : 'P-003',
+                      plantId: targetPlant ? targetPlant.id : (plants?.[0]?.id || 'P-001'),
                       status: analysisResult.status,
                       statusLabel: analysisResult.statusLabel,
                       diseaseName: analysisResult.diseaseName,

@@ -1,5 +1,4 @@
-import React from 'react';
-import { Leaf, Camera, FolderHeart, Mic, Cpu, ChevronLeft, Bell, PlusCircle } from 'lucide-react';
+import { Leaf, Camera, FolderHeart, Mic, Cpu, ChevronLeft } from 'lucide-react';
 
 export default function Header({ 
   activeScreen, 

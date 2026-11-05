@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { 
   Mic, 
   MicOff, 
@@ -38,29 +38,19 @@ export default function VoiceAssistantScreen({
   const [waveformActive, setWaveformActive] = useState(false);
 
   const chatBottomRef = useRef(null);
+  const recognitionRef = useRef(null);
 
   // Plantes ayant une alerte active ou un état non sain ('malade' ou 'surveiller')
   const activePlantAlerts = (plants || []).filter(
     (plant) => plant.status !== 'saine' || Boolean(plant.alert)
   );
 
-  useEffect(() => {
-    setMessages(INITIAL_CHAT_MESSAGES[currentLang] || INITIAL_CHAT_MESSAGES.fr);
-  }, [currentLang]);
-
-  useEffect(() => {
-    if (initialQuery && initialQuery.trim()) {
-      sendMessage(initialQuery);
-      if (onClearInitialQuery) onClearInitialQuery();
+  const speakText = useCallback((text) => {
+    if (!('speechSynthesis' in window)) {
+      setIsSpeaking(false);
+      setWaveformActive(false);
+      return;
     }
-  }, [initialQuery]);
-
-  useEffect(() => {
-    chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, waveformActive]);
-
-  const speakText = (text) => {
-    if (!('speechSynthesis' in window)) return;
     window.speechSynthesis.cancel();
 
     const utterance = new SpeechSynthesisUtterance(text);
@@ -81,69 +71,9 @@ export default function VoiceAssistantScreen({
     };
 
     window.speechSynthesis.speak(utterance);
-  };
+  }, [currentLang]);
 
-  const toggleListening = () => {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-
-    if (!SpeechRecognition) {
-      handleSendSimulatedVoice();
-      return;
-    }
-
-    if (isListening) {
-      setIsListening(false);
-      setWaveformActive(false);
-      return;
-    }
-
-    try {
-      const recognition = new SpeechRecognition();
-      recognition.lang = currentLang === 'en' ? 'en-US' : currentLang === 'wo' ? 'wo-SN' : 'fr-FR';
-      recognition.continuous = false;
-      recognition.interimResults = false;
-
-      recognition.onstart = () => {
-        setIsListening(true);
-        setWaveformActive(true);
-      };
-
-      recognition.onresult = (event) => {
-        const transcript = event.results[0][0].transcript;
-        setIsListening(false);
-        setWaveformActive(false);
-        sendMessage(transcript);
-      };
-
-      recognition.onerror = () => {
-        setIsListening(false);
-        setWaveformActive(false);
-        handleSendSimulatedVoice();
-      };
-
-      recognition.onend = () => {
-        setIsListening(false);
-      };
-
-      recognition.start();
-    } catch {
-      handleSendSimulatedVoice();
-    }
-  };
-
-  const handleSendSimulatedVoice = () => {
-    setIsListening(true);
-    setWaveformActive(true);
-
-    setTimeout(() => {
-      setIsListening(false);
-      const sampleList = SAMPLE_QUESTIONS[currentLang] || SAMPLE_QUESTIONS.fr;
-      const randomQuery = sampleList[Math.floor(Math.random() * sampleList.length)];
-      sendMessage(randomQuery);
-    }, 1200);
-  };
-
-  const sendMessage = async (textToSend) => {
+  const sendMessage = useCallback(async (textToSend) => {
     const query = textToSend || inputText;
     if (!query.trim()) return;
 
@@ -174,7 +104,112 @@ export default function VoiceAssistantScreen({
     } catch {
       setWaveformActive(false);
     }
+  }, [inputText, currentLang, plants, speakText]);
+
+  const handleSendSimulatedVoice = useCallback(() => {
+    setIsListening(true);
+    setWaveformActive(true);
+
+    setTimeout(() => {
+      setIsListening(false);
+      const sampleList = SAMPLE_QUESTIONS[currentLang] || SAMPLE_QUESTIONS.fr;
+      const randomQuery = sampleList[Math.floor(Math.random() * sampleList.length)];
+      sendMessage(randomQuery);
+    }, 1200);
+  }, [currentLang, sendMessage]);
+
+  const toggleListening = () => {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+      handleSendSimulatedVoice();
+      return;
+    }
+
+    if (isListening) {
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.abort();
+        } catch {
+          // ignore
+        }
+        recognitionRef.current = null;
+      }
+      setIsListening(false);
+      setWaveformActive(false);
+      return;
+    }
+
+    try {
+      const recognition = new SpeechRecognition();
+      recognitionRef.current = recognition;
+      recognition.lang = currentLang === 'en' ? 'en-US' : currentLang === 'wo' ? 'wo-SN' : 'fr-FR';
+      recognition.continuous = false;
+      recognition.interimResults = false;
+
+      recognition.onstart = () => {
+        setIsListening(true);
+        setWaveformActive(true);
+      };
+
+      recognition.onresult = (event) => {
+        const transcript = event.results[0][0].transcript;
+        recognitionRef.current = null;
+        setIsListening(false);
+        setWaveformActive(false);
+        sendMessage(transcript);
+      };
+
+      recognition.onerror = () => {
+        recognitionRef.current = null;
+        setIsListening(false);
+        setWaveformActive(false);
+        handleSendSimulatedVoice();
+      };
+
+      recognition.onend = () => {
+        recognitionRef.current = null;
+        setIsListening(false);
+      };
+
+      recognition.start();
+    } catch {
+      recognitionRef.current = null;
+      handleSendSimulatedVoice();
+    }
   };
+
+  useEffect(() => {
+    setMessages(INITIAL_CHAT_MESSAGES[currentLang] || INITIAL_CHAT_MESSAGES.fr);
+  }, [currentLang]);
+
+  useEffect(() => {
+    if (initialQuery && initialQuery.trim()) {
+      sendMessage(initialQuery);
+      if (onClearInitialQuery) onClearInitialQuery();
+    }
+  }, [initialQuery, sendMessage, onClearInitialQuery]);
+
+  useEffect(() => {
+    chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, waveformActive]);
+
+  // Nettoyage complet à la destruction du composant (micro + voix)
+  useEffect(() => {
+    return () => {
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.abort();
+        } catch {
+          // ignore
+        }
+        recognitionRef.current = null;
+      }
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
+    };
+  }, []);
 
   return (
     <div className="web-page-container">
