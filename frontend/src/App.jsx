@@ -1,39 +1,46 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { 
-  Camera, 
-  FolderHeart, 
-  Mic, 
-  Leaf, 
-  ChevronLeft,
-  Bell,
-  Sparkles,
-  ArrowRight,
-  ShieldCheck,
-  Cpu
-} from 'lucide-react';
 import Header from './components/Header';
 import ScanScreen from './components/ScanScreen';
 import PlantRecordsScreen from './components/PlantRecordsScreen';
 import VoiceAssistantScreen from './components/VoiceAssistantScreen';
 import FooterBanner from './components/FooterBanner';
 import OctopusConfigModal from './components/OctopusConfigModal';
+import LoginScreen from './components/LoginScreen';
+import RegisterScreen from './components/RegisterScreen';
 import { getOctopusConfig } from './services/octopusApi';
 import { INITIAL_PLANTS } from './data/mockData';
 import { isLiveMode, fetchPlants, createPlant, saveDiagnostic } from './services/phytoscanApi';
 import { buildAlerts } from './utils/alerts';
+import { getCurrentUser, SESSION_EVENT, checkAuthRequired, logout } from './services/authService';
 
 export default function App() {
-  // Navigation entre les pages du site web
-  const [activeScreen, setActiveScreen] = useState('scan'); // 'scan' | 'plants' | 'assistant'
+  // ---------------------------------------------------------------- États
+  const [authRequired, setAuthRequired] = useState(null); // null = vérification en cours
+  const [authView, setAuthView] = useState('login');      // 'login' | 'register'
+  const [showAuth, setShowAuth] = useState(false);        // ouvre connexion/inscription quand elle est facultative
+  const [currentUser, setCurrentUser] = useState(getCurrentUser());
+
+  const [activeScreen, setActiveScreen] = useState('scan');
   const [navigationHistory, setNavigationHistory] = useState(['scan']);
   const [navigationParams, setNavigationParams] = useState({});
   const [plantsList, setPlantsList] = useState(INITIAL_PLANTS);
   const [isOctopusModalOpen, setIsOctopusModalOpen] = useState(false);
   const [octopusConfig, setOctopusConfig] = useState(getOctopusConfig());
-  const [apiError, setApiError] = useState(null); // message affiché si le back est injoignable
+  const [apiError, setApiError] = useState(null);
 
-  // Chargement des plantes : depuis le back en mode live, depuis les données locales en simulation.
-  // Se relance à chaque changement de configuration (modale Octopus).
+  // ---------------------------------------------------------------- Effets
+  useEffect(() => {
+    checkAuthRequired()
+      .then(setAuthRequired)
+      .catch(() => setAuthRequired(false));
+  }, [octopusConfig]);
+
+  useEffect(() => {
+    const sync = () => setCurrentUser(getCurrentUser());
+    window.addEventListener(SESSION_EVENT, sync);
+    return () => window.removeEventListener(SESSION_EVENT, sync);
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
     if (!isLiveMode()) {
@@ -46,25 +53,23 @@ export default function App() {
       .catch((err) => {
         if (!cancelled) {
           console.warn('Chargement des plantes impossible :', err.message);
-          setPlantsList(INITIAL_PLANTS); // repli : données de démonstration locales
+          setPlantsList(INITIAL_PLANTS);
           setApiError(err.message);
         }
       });
     return () => { cancelled = true; };
-  }, [octopusConfig]);
+  }, [octopusConfig, currentUser]);
 
-  // Alertes recalculées automatiquement dès qu'une plante change (badge du Header + panneau de l'assistant)
   const alerts = useMemo(() => buildAlerts(plantsList), [plantsList]);
 
-  // Fonction de navigation entre les pages
+  // ---------------------------------------------------------------- Navigation
   const navigateTo = (screen, params = {}) => {
     setNavigationParams(params);
-    setNavigationHistory(prev => [...prev, screen]);
+    setNavigationHistory((prev) => [...prev, screen]);
     setActiveScreen(screen);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // Bouton retour dans l'historique
   const goBack = () => {
     if (navigationHistory.length > 1) {
       const newHistory = [...navigationHistory];
@@ -76,9 +81,40 @@ export default function App() {
     }
   };
 
-  // Enregistrement d'un résultat de diagnostic dans la plante ciblée
-  // MODE LIVE : le back enregistre l'historique et recalcule statut + score de santé.
-  // Si le serveur échoue, on retombe sur la mise à jour locale pour ne pas bloquer l'utilisateur.
+  const openLogin = () => { setAuthView('login'); setShowAuth(true); };
+  const openRegister = () => { setAuthView('register'); setShowAuth(true); };
+
+  const handleAuthSuccess = (user) => {
+    setCurrentUser(user);
+    setShowAuth(false);
+  };
+
+  // ---------------------------------------------------------------- Données
+  const saveDiagnosticLocally = ({ plantId, diseaseName, confidence, date }) => {
+    setPlantsList((prevPlants) =>
+      prevPlants.map((plant) => {
+        if (plant.id === plantId) {
+          const newHistoryItem = {
+            date: date || new Date().toLocaleDateString('fr-FR'),
+            type: 'Diagnostic IA',
+            result: `${diseaseName} (${confidence})`,
+            notes: 'Diagnostic automatique enregistré via la vision par ordinateur.'
+          };
+          const isHealthy = diseaseName.toLowerCase().includes('sain');
+          return {
+            ...plant,
+            status: isHealthy ? 'saine' : 'malade',
+            statusLabel: isHealthy ? 'Saine' : 'Maladie détectée',
+            healthScore: isHealthy ? 98 : 45,
+            lastObservation: date || new Date().toLocaleDateString('fr-FR'),
+            history: [newHistoryItem, ...(plant.history || [])]
+          };
+        }
+        return plant;
+      })
+    );
+  };
+
   const handleSaveDiagnosticToPlant = async (payload) => {
     if (isLiveMode()) {
       try {
@@ -97,55 +133,28 @@ export default function App() {
     saveDiagnosticLocally(payload);
   };
 
-  // Création d'une culture dans le back (utilisée uniquement en mode live, voir PlantRecordsScreen)
   const handleCreatePlant = async (data) => {
     const created = await createPlant(data);
     setPlantsList((prev) => [created, ...prev]);
     return created;
   };
 
-  // Mise à jour locale (mode simulation ou serveur injoignable)
-  const saveDiagnosticLocally = ({ plantId, diseaseName, confidence, date }) => {
-    setPlantsList(prevPlants => {
-      return prevPlants.map(plant => {
-        if (plant.id === plantId) {
-          const newHistoryItem = {
-            date: date || new Date().toLocaleDateString('fr-FR'),
-            type: "Diagnostic IA",
-            result: `${diseaseName} (${confidence})`,
-            notes: "Diagnostic automatique enregistré via la vision par ordinateur."
-          };
-          return {
-            ...plant,
-            status: diseaseName.toLowerCase().includes('sain') ? 'saine' : 'malade',
-            statusLabel: diseaseName.toLowerCase().includes('sain') ? 'Saine' : 'Maladie détectée',
-            healthScore: diseaseName.toLowerCase().includes('sain') ? 98 : 45,
-            lastObservation: date || new Date().toLocaleDateString('fr-FR'),
-            history: [newHistoryItem, ...(plant.history || [])]
-          };
-        }
-        return plant;
-      });
-    });
-  };
-
-  // Rendu de la page active du site
+  // ---------------------------------------------------------------- Rendu de la page active
   const renderCurrentScreen = () => {
     switch (activeScreen) {
       case 'scan':
         return (
-          <ScanScreen 
+          <ScanScreen
             onNavigateToPlants={(params) => navigateTo('plants', params)}
             onNavigateToAssistant={(params) => navigateTo('assistant', params)}
             targetPlant={navigationParams?.targetPlant}
-            onClearTargetPlant={() => setNavigationParams(prev => ({ ...prev, targetPlant: null }))}
+            onClearTargetPlant={() => setNavigationParams((prev) => ({ ...prev, targetPlant: null }))}
             onSaveDiagnosticToPlant={handleSaveDiagnosticToPlant}
           />
         );
-
       case 'plants':
         return (
-          <PlantRecordsScreen 
+          <PlantRecordsScreen
             plants={plantsList}
             onUpdatePlants={(updated) => setPlantsList(updated)}
             onCreatePlant={isLiveMode() ? handleCreatePlant : undefined}
@@ -154,28 +163,61 @@ export default function App() {
             onNavigateToAssistant={(params) => navigateTo('assistant', params)}
           />
         );
-
       case 'assistant':
         return (
-          <VoiceAssistantScreen 
+          <VoiceAssistantScreen
             initialQuery={navigationParams?.initialQuery || ''}
             alerts={alerts}
-            onClearInitialQuery={() => setNavigationParams(prev => ({ ...prev, initialQuery: '' }))}
+            onClearInitialQuery={() => setNavigationParams((prev) => ({ ...prev, initialQuery: '' }))}
             onNavigateToScan={(params) => navigateTo('scan', params)}
             onNavigateToPlants={(params) => navigateTo('plants', params)}
             onOpenOctopusConfig={() => setIsOctopusModalOpen(true)}
           />
         );
-
       default:
         return null;
     }
   };
 
+  // ---------------------------------------------------------------- Écrans de connexion / inscription
+  if (authRequired === null) {
+    return <div style={{ padding: 40, textAlign: 'center' }}>Chargement…</div>;
+  }
+
+  // Obligatoire (AUTH_REQUIRED=true) ou demandée par l'utilisateur (option B)
+  if ((authRequired || showAuth) && !currentUser) {
+    return (
+      <>
+        {!authRequired && (
+          <div style={{ padding: '12px 20px' }}>
+            <button
+              type="button"
+              onClick={() => setShowAuth(false)}
+              style={{ cursor: 'pointer', border: 'none', background: 'none', color: '#059669', fontWeight: 600 }}
+            >
+              ← Continuer sans compte
+            </button>
+          </div>
+        )}
+        {authView === 'login' ? (
+          <LoginScreen
+            onNavigateToRegister={() => setAuthView('register')}
+            onLoginSuccess={handleAuthSuccess}
+          />
+        ) : (
+          <RegisterScreen
+            onNavigateToLogin={() => setAuthView('login')}
+            onRegisterSuccess={handleAuthSuccess}
+          />
+        )}
+      </>
+    );
+  }
+
+  // ---------------------------------------------------------------- Application
   return (
     <div className="website-root">
-      {/* Barre de navigation principale du site */}
-      <Header 
+      <Header
         activeScreen={activeScreen}
         onNavigate={(screen) => navigateTo(screen)}
         canGoBack={navigationHistory.length > 1}
@@ -183,24 +225,29 @@ export default function App() {
         onOpenOctopusConfig={() => setIsOctopusModalOpen(true)}
         isOctopusConnected={!octopusConfig.useMock && !!octopusConfig.baseUrl}
         alertCount={alerts.length}
+        currentUser={currentUser}
+        onLogout={logout}
+        onShowLogin={openLogin}
+        onShowRegister={openRegister}
       />
 
-      {/* Contenu principal de la page web */}
       <main className="website-main-content">
         {apiError && (
-          <div style={{ margin: '12px auto', maxWidth: '1100px', padding: '10px 14px', borderRadius: '8px',
-                        background: '#fef3c7', color: '#92400e', border: '1px solid #fde68a', fontSize: '0.85rem' }}>
+          <div
+            style={{
+              margin: '12px auto', maxWidth: '1100px', padding: '10px 14px', borderRadius: '8px',
+              background: '#fef3c7', color: '#92400e', border: '1px solid #fde68a', fontSize: '0.85rem'
+            }}
+          >
             Serveur PhytoScan injoignable ou erreur ({apiError}). Les données affichées peuvent être locales (démonstration).
           </div>
         )}
         {renderCurrentScreen()}
       </main>
 
-      {/* Pied de page du site web */}
       <FooterBanner onNavigate={(screen) => navigateTo(screen)} />
 
-      {/* Modal de Configuration Octopus */}
-      <OctopusConfigModal 
+      <OctopusConfigModal
         isOpen={isOctopusModalOpen}
         onClose={() => setIsOctopusModalOpen(false)}
         onConfigSaved={(newCfg) => setOctopusConfig(newCfg)}
