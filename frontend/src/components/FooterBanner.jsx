@@ -1,5 +1,4 @@
-import React from 'react';
-import { Cpu, Leaf, Mic, ShieldCheck, Heart, Sparkles, ExternalLink } from 'lucide-react';
+import { Cpu, Leaf, Mic, ShieldCheck } from 'lucide-react';
 
 export default function FooterBanner({ onNavigate }) {
   return (

@@ -1,27 +1,24 @@
-import React, { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { 
   Camera, 
-  RotateCcw, 
   Upload, 
   CheckCircle2, 
   AlertTriangle, 
   Sparkles, 
-  Info,
   FolderHeart,
   Mic,
   BookmarkCheck,
   ArrowRight,
   Sprout,
   ShieldAlert,
-  Sliders,
   Check,
   Activity,
-  ScanLine,
-  Eye
+  ScanLine
 } from 'lucide-react';
 import { analyzePlantImage } from '../services/octopusApi';
 
 export default function ScanScreen({ 
+  plants = [],
   onNavigateToPlants, 
   onNavigateToAssistant, 
   targetPlant,
@@ -55,6 +52,7 @@ export default function ScanScreen({
   const [useCameraStream, setUseCameraStream] = useState(false);
   const videoRef = useRef(null);
   const fileInputRef = useRef(null);
+  const objectUrlRef = useRef(null);
 
   useEffect(() => {
     let stream = null;
@@ -79,9 +77,44 @@ export default function ScanScreen({
     };
   }, [useCameraStream]);
 
+  // Nettoyage des ObjectURLs créés lors de l'import de fichiers
+  useEffect(() => {
+    return () => {
+      if (objectUrlRef.current) {
+        URL.revokeObjectURL(objectUrlRef.current);
+      }
+    };
+  }, []);
+
+  // Capture la frame actuelle du flux vidéo <video> dans un <canvas> et retourne un DataURL JPEG
+  const captureVideoFrame = () => {
+    const videoEl = videoRef.current;
+    if (!videoEl || videoEl.readyState < 2) {
+      return null;
+    }
+    const canvas = document.createElement('canvas');
+    canvas.width = videoEl.videoWidth || 640;
+    canvas.height = videoEl.videoHeight || 480;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return null;
+    ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
+    return canvas.toDataURL('image/jpeg', 0.92);
+  };
+
   // Déclencher une analyse IA uniquement sur action explicite
   const handleTriggerScan = async (sampleType = 'default', specificImage = null) => {
-    const imgToAnalyze = specificImage || currentImage;
+    let imgToAnalyze = specificImage || currentImage;
+
+    // Si la caméra en direct est active et qu'aucun échantillon spécifique n'est forcé, capturer la frame vidéo
+    if (!specificImage && useCameraStream) {
+      const capturedDataUrl = captureVideoFrame();
+      if (capturedDataUrl) {
+        imgToAnalyze = capturedDataUrl;
+        setCurrentImage(capturedDataUrl);
+        setUseCameraStream(false);
+      }
+    }
+
     setIsScanning(true);
     setScanProgress(15);
     setHasSavedDiagnostic(false);
@@ -120,11 +153,21 @@ export default function ScanScreen({
   const handleFileUpload = (e) => {
     const file = e.target.files?.[0];
     if (file) {
+      if (objectUrlRef.current) {
+        URL.revokeObjectURL(objectUrlRef.current);
+      }
       const url = URL.createObjectURL(file);
+      objectUrlRef.current = url;
       setCurrentImage(url);
       setUseCameraStream(false);
       handleTriggerScan('upload', url);
     }
+  };
+
+  const handleSelectSample = (type, imagePath) => {
+    setUseCameraStream(false);
+    setCurrentImage(imagePath);
+    handleTriggerScan(type, imagePath);
   };
 
   return (
@@ -189,6 +232,7 @@ export default function ScanScreen({
                 ref={videoRef} 
                 autoPlay 
                 playsInline 
+                muted
                 className="web-video-stream" 
               />
             ) : (
@@ -210,7 +254,9 @@ export default function ScanScreen({
 
             {/* Overlay d'état en direct */}
             <div className="viewfinder-hud-overlay">
-              <span className="hud-badge">● LIVE HUD 4K</span>
+              <span className="hud-badge">
+                {useCameraStream ? "● CAMÉRA DIRECTE ACTIVE" : "● LIVE HUD 4K"}
+              </span>
               <span className="hud-badge">
                 {isScanning ? "NUMÉRISATION EN COURS..." : hasScanned ? "ANALYSE EFFECTUÉE" : "PRÊT À NUMÉRISER"}
               </span>
@@ -273,13 +319,15 @@ export default function ScanScreen({
                     Analyse spectrale complétée avec succès
                   </span>
                 </div>
-                <span style={{ fontSize: '0.78rem', color: '#64748b' }}>Précision 96.4%</span>
+                <span style={{ fontSize: '0.78rem', color: '#64748b' }}>Précision {analysisResult.confidence}</span>
               </div>
             </div>
           ) : (
             <div className="web-progress-block ready-idle">
               <span style={{ fontSize: '0.84rem', color: '#475569' }}>
-                Sélectionnez une feuille ci-dessous ou cliquez sur le bouton pour lancer le diagnostic.
+                {useCameraStream 
+                  ? "Cadrez la feuille dans le viseur puis cliquez ci-dessous pour capturer et analyser l'image."
+                  : "Sélectionnez une feuille ci-dessous ou cliquez sur le bouton pour lancer le diagnostic."}
               </span>
             </div>
           )}
@@ -296,9 +344,11 @@ export default function ScanScreen({
               <span>
                 {isScanning 
                   ? "Analyse en cours..." 
-                  : hasScanned 
-                    ? "Relancer une analyse" 
-                    : "Lancer le diagnostic IA de cette feuille"}
+                  : useCameraStream
+                    ? "Capturer la photo & lancer le diagnostic IA"
+                    : hasScanned 
+                      ? "Relancer une analyse" 
+                      : "Lancer le diagnostic IA de cette feuille"}
               </span>
             </button>
 
@@ -307,20 +357,14 @@ export default function ScanScreen({
               <button 
                 type="button" 
                 className="web-btn-chip-sample"
-                onClick={() => {
-                  setCurrentImage('/assets/sample_infected_leaf.jpg');
-                  handleTriggerScan('infected', '/assets/sample_infected_leaf.jpg');
-                }}
+                onClick={() => handleSelectSample('infected', '/assets/sample_infected_leaf.jpg')}
               >
                 🍂 Feuille malade (Cercospora)
               </button>
               <button 
                 type="button" 
                 className="web-btn-chip-sample healthy"
-                onClick={() => {
-                  setCurrentImage('/assets/comparaison_saine.jpg');
-                  handleTriggerScan('healthy', '/assets/comparaison_saine.jpg');
-                }}
+                onClick={() => handleSelectSample('healthy', '/assets/comparaison_saine.jpg')}
               >
                 🌿 Feuille saine (Tomate)
               </button>
@@ -337,11 +381,11 @@ export default function ScanScreen({
             <div className="web-card scan-result-card">
               <div className="result-header-row">
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <div className={`status-icon-circle ${analysisResult.status === 'malade' ? 'danger' : 'success'}`}>
-                    {analysisResult.status === 'malade' ? <ShieldAlert size={22} /> : <CheckCircle2 size={22} />}
+                  <div className={`status-icon-circle ${analysisResult.status === 'saine' ? 'success' : 'danger'}`}>
+                    {analysisResult.status === 'saine' ? <CheckCircle2 size={22} /> : <ShieldAlert size={22} />}
                   </div>
                   <div>
-                    <span className={analysisResult.status === 'malade' ? 'web-badge-danger' : 'web-badge-success'}>
+                    <span className={analysisResult.status === 'saine' ? 'web-badge-success' : 'web-badge-danger'}>
                       {analysisResult.statusLabel}
                     </span>
                     <h2 className="disease-headline">{analysisResult.diseaseName}</h2>
@@ -362,7 +406,7 @@ export default function ScanScreen({
                 </div>
                 <div className="spec-item">
                   <span className="spec-label">Sévérité estimée</span>
-                  <strong className="spec-val" style={{ color: analysisResult.status === 'malade' ? '#e11d48' : '#059669' }}>
+                  <strong className="spec-val" style={{ color: analysisResult.status === 'saine' ? '#059669' : analysisResult.status === 'surveiller' ? '#d97706' : '#e11d48' }}>
                     {analysisResult.severity}
                   </strong>
                 </div>
@@ -394,7 +438,7 @@ export default function ScanScreen({
                   type="button" 
                   className="web-action-btn plants"
                   onClick={() => onNavigateToPlants && onNavigateToPlants({
-                    plantId: targetPlant ? targetPlant.id : 'P-003',
+                    plantId: targetPlant ? targetPlant.id : (plants?.[0]?.id || 'P-001'),
                     disease: analysisResult.diseaseName
                   })}
                 >
@@ -430,9 +474,12 @@ export default function ScanScreen({
                   setHasSavedDiagnostic(true);
                   if (onSaveDiagnosticToPlant) {
                     onSaveDiagnosticToPlant({
-                      plantId: targetPlant ? targetPlant.id : 'P-003',
+                      plantId: targetPlant ? targetPlant.id : (plants?.[0]?.id || 'P-001'),
+                      status: analysisResult.status,
+                      statusLabel: analysisResult.statusLabel,
                       diseaseName: analysisResult.diseaseName,
                       confidence: analysisResult.confidence,
+                      remedies: analysisResult.remedies,
                       date: new Date().toLocaleDateString('fr-FR')
                     });
                   }
@@ -459,20 +506,14 @@ export default function ScanScreen({
                 <button 
                   type="button" 
                   className="web-btn-chip-sample"
-                  onClick={() => {
-                    setCurrentImage('/assets/sample_infected_leaf.jpg');
-                    handleTriggerScan('infected', '/assets/sample_infected_leaf.jpg');
-                  }}
+                  onClick={() => handleSelectSample('infected', '/assets/sample_infected_leaf.jpg')}
                 >
                   🍂 Tester avec une feuille atteinte (Cercospora)
                 </button>
                 <button 
                   type="button" 
                   className="web-btn-chip-sample healthy"
-                  onClick={() => {
-                    setCurrentImage('/assets/comparaison_saine.jpg');
-                    handleTriggerScan('healthy', '/assets/comparaison_saine.jpg');
-                  }}
+                  onClick={() => handleSelectSample('healthy', '/assets/comparaison_saine.jpg')}
                 >
                   🌿 Tester avec une feuille saine
                 </button>
