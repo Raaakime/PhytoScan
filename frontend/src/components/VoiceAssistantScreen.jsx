@@ -4,10 +4,7 @@ import {
   MicOff, 
   Send, 
   Volume2, 
-  VolumeX, 
   Bell, 
-  ChevronRight, 
-  Sparkles, 
   Leaf,
   Camera,
   FolderHeart,
@@ -15,17 +12,18 @@ import {
   ShieldAlert,
   AlertTriangle,
   Cpu,
-  CheckCircle2,
-  HelpCircle
+  CheckCircle2
 } from 'lucide-react';
 import { 
   ASSISTANT_LANGUAGES, 
   INITIAL_CHAT_MESSAGES, 
+  INITIAL_PLANTS,
   SAMPLE_QUESTIONS 
 } from '../data/mockData';
 import { askOctopusAssistant } from '../services/octopusApi';
 
 export default function VoiceAssistantScreen({ 
+  plants = INITIAL_PLANTS,
   initialQuery = '', 
   onClearInitialQuery,
   onNavigateToScan, 
@@ -40,6 +38,11 @@ export default function VoiceAssistantScreen({
   const [waveformActive, setWaveformActive] = useState(false);
 
   const chatBottomRef = useRef(null);
+
+  // Plantes ayant une alerte active ou un état non sain ('malade' ou 'surveiller')
+  const activePlantAlerts = (plants || []).filter(
+    (plant) => plant.status !== 'saine' || Boolean(plant.alert)
+  );
 
   useEffect(() => {
     setMessages(INITIAL_CHAT_MESSAGES[currentLang] || INITIAL_CHAT_MESSAGES.fr);
@@ -156,7 +159,7 @@ export default function VoiceAssistantScreen({
     setWaveformActive(true);
 
     try {
-      const botReply = await askOctopusAssistant(query, currentLang);
+      const botReply = await askOctopusAssistant(query, currentLang, { plants });
       setMessages(prev => [
         ...prev,
         {
@@ -347,63 +350,104 @@ export default function VoiceAssistantScreen({
         </div>
 
         {/* =========================================================
-            COLONNE DROITE : TOUR DE CONTRÔLE DES ALERTES
+            COLONNE DROITE : TOUR DE CONTRÔLE DES ALERTES DYNAMIQUES
             ========================================================= */}
         <div className="web-assistant-sidebar">
           {/* Centre des alertes phytosanitaires */}
           <div className="web-card web-alerts-card">
             <div className="alerts-card-header">
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Bell size={20} color="#e11d48" />
+                <Bell size={20} color={activePlantAlerts.length > 0 ? '#e11d48' : '#10b981'} />
                 <h3 style={{ margin: 0 }}>Alertes Phytosanitaires en direct</h3>
               </div>
-              <span className="urgent-badge-pill">2 alertes actives</span>
+              <span
+                className="urgent-badge-pill"
+                style={
+                  activePlantAlerts.length === 0
+                    ? { background: '#dcfce7', color: '#15803d' }
+                    : undefined
+                }
+              >
+                {activePlantAlerts.length} alerte{activePlantAlerts.length > 1 ? 's' : ''} active{activePlantAlerts.length > 1 ? 's' : ''}
+              </span>
             </div>
 
             <div className="alerts-list">
-              {/* Alerte 1 : Plante 2 / Oïdium */}
-              <div className="web-alert-item danger">
-                <div className="alert-item-top">
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <ShieldAlert size={16} color="#e11d48" />
-                    <strong>Plante 2 (Aubergine) — Parcelle B1</strong>
+              {activePlantAlerts.length === 0 ? (
+                <div
+                  className="web-alert-item"
+                  style={{
+                    background: '#f0fdf4',
+                    border: '1px solid #bbf7d0',
+                    color: '#166534'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <CheckCircle2 size={18} color="#10b981" />
+                    <strong>Aucune alerte sanitaire sur vos parcelles</strong>
                   </div>
-                  <span className="alert-time">Aujourd'hui, 10:24</span>
+                  <p className="alert-item-desc" style={{ color: '#15803d' }}>
+                    Toutes les cultures enregistrées dans votre carnet sont actuellement saines.
+                  </p>
                 </div>
-                <p className="alert-item-desc">
-                  Présence d'oïdium sur la canopée basse. Risque élevé de propagation sous l'effet de l'humidité relative (82%). Traitement fongicide recommandé sous 24h.
-                </p>
-                <div className="alert-item-actions">
-                  <button 
-                    type="button" 
-                    className="web-alert-btn-action primary"
-                    onClick={() => onNavigateToPlants && onNavigateToPlants({ plantId: 'P-002' })}
-                  >
-                    <FolderHeart size={14} />
-                    <span>Consulter le dossier de la plante</span>
-                  </button>
-                  <button 
-                    type="button" 
-                    className="web-alert-btn-action secondary"
-                    onClick={() => onNavigateToScan && onNavigateToScan({ targetPlant: { id: 'P-002', name: 'Plante 2', species: 'Aubergine', plot: 'Parcelle B1' } })}
-                  >
-                    <Camera size={14} />
-                    <span>Faire un scan de contrôle</span>
-                  </button>
-                </div>
-              </div>
+              ) : (
+                activePlantAlerts.map((plant) => {
+                  const isSevere = plant.status === 'malade';
+                  return (
+                    <div
+                      key={plant.id}
+                      className={`web-alert-item ${isSevere ? 'danger' : 'warning'}`}
+                    >
+                      <div className="alert-item-top">
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          {isSevere ? (
+                            <ShieldAlert size={16} color="#e11d48" />
+                          ) : (
+                            <AlertTriangle size={16} color="#d97706" />
+                          )}
+                          <strong>
+                            {plant.name} ({plant.species.split(' (')[0]}) — {plant.plot}
+                          </strong>
+                        </div>
+                        <span className="alert-time">{plant.lastObservation}</span>
+                      </div>
+                      <p className="alert-item-desc">
+                        {plant.alert || plant.details?.notes || `Statut actuel : ${plant.statusLabel} (Score de santé : ${plant.healthScore}/100).`}
+                      </p>
+                      <div className="alert-item-actions">
+                        <button 
+                          type="button" 
+                          className="web-alert-btn-action primary"
+                          onClick={() => onNavigateToPlants && onNavigateToPlants({ plantId: plant.id })}
+                        >
+                          <FolderHeart size={14} />
+                          <span>Consulter le dossier de la plante</span>
+                        </button>
+                        <button 
+                          type="button" 
+                          className="web-alert-btn-action secondary"
+                          onClick={() => onNavigateToScan && onNavigateToScan({ targetPlant: plant })}
+                        >
+                          <Camera size={14} />
+                          <span>Faire un scan de contrôle</span>
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
 
-              {/* Alerte 2 : Vigilance Météo / Risque mildiou */}
+              {/* Bulletin de vigilance agro-météorologique */}
               <div className="web-alert-item warning">
                 <div className="alert-item-top">
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <AlertTriangle size={16} color="#d97706" />
-                    <strong>Vigilance Météo & Risque Mildiou</strong>
+                    <strong>Vigilance Météo & Risque Fongique</strong>
                   </div>
-                  <span className="alert-time">Hier, 17:00</span>
+                  <span className="alert-time">Bulletin préventif</span>
                 </div>
                 <p className="alert-item-desc">
-                  Conditions orageuses prévues sur le secteur. Pensez à aérer les serres et à espacer les arrosages pour éviter l'eau stagnante sur les feuilles de tomate.
+                  Hygrométrie matinale élevée prévue sur le secteur. Aérez les serres et arrosez directement au pied pour éviter l'eau stagnante sur le feuillage.
                 </p>
               </div>
             </div>

@@ -1,16 +1,4 @@
-import React, { useState } from 'react';
-import { 
-  Camera, 
-  FolderHeart, 
-  Mic, 
-  Leaf, 
-  ChevronLeft,
-  Bell,
-  Sparkles,
-  ArrowRight,
-  ShieldCheck,
-  Cpu
-} from 'lucide-react';
+import React, { useState, useEffect } from 'react';
 import Header from './components/Header';
 import ScanScreen from './components/ScanScreen';
 import PlantRecordsScreen from './components/PlantRecordsScreen';
@@ -20,14 +8,45 @@ import OctopusConfigModal from './components/OctopusConfigModal';
 import { getOctopusConfig } from './services/octopusApi';
 import { INITIAL_PLANTS } from './data/mockData';
 
+const PLANTS_STORAGE_KEY = 'phytoscan_plants_data';
+
+const loadPersistedPlants = () => {
+  try {
+    const saved = localStorage.getItem(PLANTS_STORAGE_KEY);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed;
+      }
+    }
+  } catch (err) {
+    console.warn('Impossible de charger les plantes depuis localStorage:', err);
+  }
+  return INITIAL_PLANTS;
+};
+
 export default function App() {
   // Navigation entre les pages du site web
   const [activeScreen, setActiveScreen] = useState('scan'); // 'scan' | 'plants' | 'assistant'
   const [navigationHistory, setNavigationHistory] = useState(['scan']);
   const [navigationParams, setNavigationParams] = useState({});
-  const [plantsList, setPlantsList] = useState(INITIAL_PLANTS);
+  const [plantsList, setPlantsList] = useState(loadPersistedPlants);
   const [isOctopusModalOpen, setIsOctopusModalOpen] = useState(false);
   const [octopusConfig, setOctopusConfig] = useState(getOctopusConfig());
+
+  // Sauvegarde automatique dans localStorage à chaque mise à jour des cultures
+  useEffect(() => {
+    try {
+      localStorage.setItem(PLANTS_STORAGE_KEY, JSON.stringify(plantsList));
+    } catch (err) {
+      console.error('Erreur lors de la sauvegarde des cultures dans localStorage:', err);
+    }
+  }, [plantsList]);
+
+  // Calcul dynamique du nombre d'alertes phytosanitaires actives
+  const activeAlertCount = plantsList.filter(
+    (plant) => plant.status !== 'saine' || Boolean(plant.alert)
+  ).length;
 
   // Fonction de navigation entre les pages
   const navigateTo = (screen, params = {}) => {
@@ -50,23 +69,63 @@ export default function App() {
   };
 
   // Enregistrement d'un résultat de diagnostic dans la plante ciblée
-  const handleSaveDiagnosticToPlant = ({ plantId, diseaseName, confidence, date }) => {
+  const handleSaveDiagnosticToPlant = ({
+    plantId,
+    status,
+    diseaseName,
+    confidence,
+    remedies,
+    date
+  }) => {
+    const obsDate = date || new Date().toLocaleDateString('fr-FR');
+    const isHealthy =
+      status === 'saine' ||
+      diseaseName.toLowerCase().includes('sain') ||
+      diseaseName.toLowerCase().includes('aucune anomalie');
+    const isWatch = status === 'surveiller';
+
+    const resolvedStatus = isHealthy ? 'saine' : isWatch ? 'surveiller' : 'malade';
+    const resolvedLabel = isHealthy ? 'Saine' : isWatch ? 'À surveiller' : 'Malade';
+    const resolvedScore = isHealthy ? 98 : isWatch ? 72 : 42;
+    const resolvedAlert = isHealthy
+      ? null
+      : isWatch
+        ? `Suspicion détectée : ${diseaseName} (${confidence}). Surveillance et traitement préventif conseillés.`
+        : `Diagnostic IA : ${diseaseName} (${confidence}). Traitement d'urgence requis.`;
+
     setPlantsList(prevPlants => {
       return prevPlants.map(plant => {
         if (plant.id === plantId) {
           const newHistoryItem = {
-            date: date || new Date().toLocaleDateString('fr-FR'),
-            type: "Diagnostic IA",
+            date: obsDate,
+            type: 'Diagnostic IA',
             result: `${diseaseName} (${confidence})`,
-            notes: "Diagnostic automatique enregistré via la vision par ordinateur."
+            notes: remedies && remedies.length > 0
+              ? `Recommandation clé : ${remedies[0]}`
+              : 'Diagnostic automatique enregistré via la vision par ordinateur.'
           };
+
+          const updatedCare =
+            !isHealthy && remedies && remedies.length > 0
+              ? [
+                  {
+                    task: remedies[0],
+                    frequency: 'Immédiat (Suite au scan IA)',
+                    status: isWatch ? 'Préventif' : 'Urgent (24h)'
+                  },
+                  ...(plant.care || [])
+                ]
+              : plant.care || [];
+
           return {
             ...plant,
-            status: diseaseName.toLowerCase().includes('sain') ? 'saine' : 'malade',
-            statusLabel: diseaseName.toLowerCase().includes('sain') ? 'Saine' : 'Maladie détectée',
-            healthScore: diseaseName.toLowerCase().includes('sain') ? 98 : 45,
-            lastObservation: date || new Date().toLocaleDateString('fr-FR'),
-            history: [newHistoryItem, ...(plant.history || [])]
+            status: resolvedStatus,
+            statusLabel: resolvedLabel,
+            healthScore: resolvedScore,
+            alert: resolvedAlert,
+            lastObservation: obsDate,
+            history: [newHistoryItem, ...(plant.history || [])],
+            care: updatedCare
           };
         }
         return plant;
@@ -102,6 +161,7 @@ export default function App() {
       case 'assistant':
         return (
           <VoiceAssistantScreen 
+            plants={plantsList}
             initialQuery={navigationParams?.initialQuery || ''}
             onClearInitialQuery={() => setNavigationParams(prev => ({ ...prev, initialQuery: '' }))}
             onNavigateToScan={(params) => navigateTo('scan', params)}
@@ -125,7 +185,7 @@ export default function App() {
         onGoBack={goBack}
         onOpenOctopusConfig={() => setIsOctopusModalOpen(true)}
         isOctopusConnected={!octopusConfig.useMock && !!octopusConfig.baseUrl}
-        alertCount={2}
+        alertCount={activeAlertCount}
       />
 
       {/* Contenu principal de la page web */}

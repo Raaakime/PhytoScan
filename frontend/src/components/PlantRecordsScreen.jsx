@@ -69,7 +69,13 @@ export default function PlantRecordsScreen({
     e.preventDefault();
     if (!newPlantName.trim()) return;
 
-    const newId = `P-00${plantList.length + 1}`;
+    const nextNum = plantList.length + 1;
+    const newId = `P-${String(nextNum).padStart(3, "0")}`;
+    const speciesImage = newPlantSpecies.toLowerCase().includes("aubergine")
+      ? "/assets/plante_2.jpg"
+      : newPlantSpecies.toLowerCase().includes("piment") || newPlantSpecies.toLowerCase().includes("poivron")
+        ? "/assets/plante_3.jpg"
+        : "/assets/plante_1.jpg";
     const newPlantObj = {
       id: newId,
       name: newPlantName,
@@ -82,7 +88,7 @@ export default function PlantRecordsScreen({
       lastObservation: new Date().toLocaleDateString("fr-FR"),
       plot: newPlantPlot,
       waterSchedule: "Goutte-à-goutte (quotidien)",
-      image: "/assets/plante_1.jpg",
+      image: speciesImage,
       healthScore: 96,
       details: {
         yieldEstimate: "4.0 kg / pied",
