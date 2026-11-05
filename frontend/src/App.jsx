@@ -3,9 +3,12 @@ import Header from './components/Header';
 import ScanScreen from './components/ScanScreen';
 import PlantRecordsScreen from './components/PlantRecordsScreen';
 import VoiceAssistantScreen from './components/VoiceAssistantScreen';
+import LoginScreen from './components/LoginScreen';
+import RegisterScreen from './components/RegisterScreen';
 import FooterBanner from './components/FooterBanner';
 import OctopusConfigModal from './components/OctopusConfigModal';
 import { getOctopusConfig } from './services/octopusApi';
+import { getCurrentUser, logoutUser } from './services/authService';
 import { INITIAL_PLANTS } from './data/mockData';
 
 const PLANTS_STORAGE_KEY = 'phytoscan_plants_data';
@@ -27,12 +30,29 @@ const loadPersistedPlants = () => {
 
 export default function App() {
   // Navigation entre les pages du site web
-  const [activeScreen, setActiveScreen] = useState('scan'); // 'scan' | 'plants' | 'assistant'
+  const [activeScreen, setActiveScreen] = useState('scan'); // 'scan' | 'plants' | 'assistant' | 'login' | 'register'
   const [navigationHistory, setNavigationHistory] = useState(['scan']);
   const [navigationParams, setNavigationParams] = useState({});
   const [plantsList, setPlantsList] = useState(loadPersistedPlants);
   const [isOctopusModalOpen, setIsOctopusModalOpen] = useState(false);
   const [octopusConfig, setOctopusConfig] = useState(getOctopusConfig());
+  const [currentUser, setCurrentUser] = useState(getCurrentUser);
+
+  const handleLoginSuccess = (user) => {
+    setCurrentUser(user);
+    navigateTo('scan');
+  };
+
+  const handleRegisterSuccess = (user) => {
+    setCurrentUser(user);
+    navigateTo('scan');
+  };
+
+  const handleLogout = () => {
+    logoutUser();
+    setCurrentUser(null);
+    navigateTo('scan');
+  };
 
   // Sauvegarde automatique dans localStorage à chaque mise à jour des cultures
   useEffect(() => {
@@ -171,6 +191,22 @@ export default function App() {
           />
         );
 
+      case 'login':
+        return (
+          <LoginScreen 
+            onNavigateToRegister={() => navigateTo('register')}
+            onLoginSuccess={handleLoginSuccess}
+          />
+        );
+
+      case 'register':
+        return (
+          <RegisterScreen 
+            onNavigateToLogin={() => navigateTo('login')}
+            onRegisterSuccess={handleRegisterSuccess}
+          />
+        );
+
       default:
         return null;
     }
@@ -187,6 +223,8 @@ export default function App() {
         onOpenOctopusConfig={() => setIsOctopusModalOpen(true)}
         isOctopusConnected={!octopusConfig.useMock && !!octopusConfig.baseUrl}
         alertCount={activeAlertCount}
+        currentUser={currentUser}
+        onLogout={handleLogout}
       />
 
       {/* Contenu principal de la page web */}

@@ -1,4 +1,4 @@
-import { Leaf, Camera, FolderHeart, Mic, Cpu, ChevronLeft } from 'lucide-react';
+import { Leaf, Camera, FolderHeart, Mic, Cpu, ChevronLeft, LogIn, LogOut, User } from 'lucide-react';
 
 export default function Header({ 
   activeScreen, 
@@ -7,7 +7,9 @@ export default function Header({
   onGoBack, 
   onOpenOctopusConfig, 
   isOctopusConnected,
-  alertCount = 0
+  alertCount = 0,
+  currentUser = null,
+  onLogout
 }) {
   return (
     <header className="web-navbar">
@@ -86,6 +88,46 @@ export default function Header({
             <Cpu size={16} />
             <span>Octopus IA : {isOctopusConnected ? "Connecté" : "Simulation"}</span>
           </button>
+
+          {/* Section Authentification Utilisateur */}
+          {currentUser ? (
+            <div className="web-user-profile-badge" title={`Exploitant : ${currentUser.name} (${currentUser.farmName || currentUser.role})`}>
+              <div className="web-user-avatar" style={{ background: currentUser.avatarColor || '#10b981' }}>
+                {currentUser.name ? currentUser.name.charAt(0).toUpperCase() : 'U'}
+              </div>
+              <div className="web-user-info-text">
+                <span className="web-user-name">{currentUser.name}</span>
+                <span className="web-user-role">{currentUser.farmName || currentUser.role}</span>
+              </div>
+              <button 
+                type="button" 
+                className="web-btn-logout-icon"
+                onClick={onLogout}
+                title="Se déconnecter de PhytoScan"
+              >
+                <LogOut size={16} />
+              </button>
+            </div>
+          ) : (
+            <div className="web-auth-nav-buttons">
+              <button 
+                type="button" 
+                className={`web-btn-auth-link ${activeScreen === 'login' ? 'active' : ''}`}
+                onClick={() => onNavigate('login')}
+              >
+                <LogIn size={15} />
+                <span>Connexion</span>
+              </button>
+              <button 
+                type="button" 
+                className={`web-btn-auth-register ${activeScreen === 'register' ? 'active' : ''}`}
+                onClick={() => onNavigate('register')}
+              >
+                <User size={15} />
+                <span>Inscription</span>
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </header>
