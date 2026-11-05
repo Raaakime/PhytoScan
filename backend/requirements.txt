@@ -1,0 +1,26 @@
+# --- Framework web ---
+fastapi>=0.115
+uvicorn[standard]>=0.30
+python-multipart>=0.0.9      # nécessaire pour l'upload d'images (multipart/form-data)
+
+# --- Base de données ---
+SQLAlchemy>=2.0
+alembic>=1.13               # migrations du schéma de la base
+# SQLite est inclus dans Python : rien à installer pour les tests.
+# Pour le déploiement, voir requirements-prod.txt (PostgreSQL / MySQL).
+
+# --- Validation & configuration ---
+pydantic>=2.7
+pydantic-settings>=2.3
+email-validator>=2.1
+
+# --- Sécurité (authentification) ---
+PyJWT>=2.8
+bcrypt>=4.1
+
+# --- Images & IA ---
+Pillow>=10.3
+
+# --- Tests ---
+pytest>=8.0
+httpx>=0.27

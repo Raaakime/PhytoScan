@@ -1,0 +1,10 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+*.db
+uploads/scans/*
+!uploads/scans/.gitkeep
+app/ml/weights/*
+!app/ml/weights/.gitkeep
+.pytest_cache/

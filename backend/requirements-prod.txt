@@ -1,0 +1,7 @@
+-r requirements.txt
+# Choisir UN seul pilote selon la base cible :
+psycopg[binary]>=3.1     # PostgreSQL  -> postgresql+psycopg://user:pass@host:5432/phytoscan
+# PyMySQL>=1.1           # MySQL       -> mysql+pymysql://user:pass@host:3306/phytoscan
+# Vrai modèle IA (format ONNX) :
+# onnxruntime>=1.18
+# numpy>=1.26
