@@ -25,7 +25,8 @@ import {
 } from '../data/mockData';
 import { askOctopusAssistant } from '../services/octopusApi';
 
-export default function VoiceAssistantScreen({ 
+export default function VoiceAssistantScreen({
+  alerts = null, // liste calculée par App.jsx (null = anciennes alertes statiques) 
   initialQuery = '', 
   onClearInitialQuery,
   onNavigateToScan, 
@@ -172,6 +173,9 @@ export default function VoiceAssistantScreen({
       setWaveformActive(false);
     }
   };
+
+  // Nombre d'alertes affiché dans le badge (2 = valeur historique des données statiques)
+  const alertTotal = alerts ? alerts.length : 2;
 
   return (
     <div className="web-page-container">
@@ -357,10 +361,57 @@ export default function VoiceAssistantScreen({
                 <Bell size={20} color="#e11d48" />
                 <h3 style={{ margin: 0 }}>Alertes Phytosanitaires en direct</h3>
               </div>
-              <span className="urgent-badge-pill">2 alertes actives</span>
+              <span className="urgent-badge-pill">{alertTotal} {alertTotal > 1 ? 'alertes actives' : 'alerte active'}</span>
             </div>
 
             <div className="alerts-list">
+              {alerts ? (
+                <>
+                  {alerts.length === 0 && (
+                    <p className="alert-item-desc">Aucune alerte active : toutes vos cultures sont saines.</p>
+                  )}
+                  {alerts.map((a) => (
+                    <div key={a.id} className={`web-alert-item ${a.level}`}>
+                      <div className="alert-item-top">
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          {a.level === 'danger'
+                            ? <ShieldAlert size={16} color="#e11d48" />
+                            : <AlertTriangle size={16} color="#d97706" />}
+                          <strong>{a.title}</strong>
+                        </div>
+                        <span className="alert-time">{a.date}</span>
+                      </div>
+                      <p className="alert-item-desc">{a.description}</p>
+                      <div className="alert-item-actions">
+                        <button
+                          type="button"
+                          className="web-alert-btn-action primary"
+                          onClick={() => onNavigateToPlants && onNavigateToPlants({ plantId: a.plant.id })}
+                        >
+                          <FolderHeart size={14} />
+                          <span>Consulter le dossier de la plante</span>
+                        </button>
+                        <button
+                          type="button"
+                          className="web-alert-btn-action secondary"
+                          onClick={() => onNavigateToScan && onNavigateToScan({
+                            targetPlant: {
+                              id: a.plant.id,
+                              name: a.plant.name,
+                              species: (a.plant.species || '').split('(')[0].trim(),
+                              plot: (a.plant.plot || '').split(' - ')[0].trim()
+                            }
+                          })}
+                        >
+                          <Camera size={14} />
+                          <span>Faire un scan de contrôle</span>
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </>
+              ) : (
+                <>
               {/* Alerte 1 : Plante 2 / Oïdium */}
               <div className="web-alert-item danger">
                 <div className="alert-item-top">
@@ -406,6 +457,8 @@ export default function VoiceAssistantScreen({
                   Conditions orageuses prévues sur le secteur. Pensez à aérer les serres et à espacer les arrosages pour éviter l'eau stagnante sur les feuilles de tomate.
                 </p>
               </div>
+                </>
+              )}
             </div>
           </div>
 

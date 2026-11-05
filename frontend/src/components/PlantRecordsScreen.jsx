@@ -25,7 +25,8 @@ import {
 } from 'lucide-react';
 import { INITIAL_PLANTS } from '../data/mockData';
 
-export default function PlantRecordsScreen({ 
+export default function PlantRecordsScreen({
+  onCreatePlant, // fourni par App.jsx en mode live : crée la culture dans le back 
   plants = INITIAL_PLANTS, 
   onUpdatePlants,
   initialPlantId = 'P-001',
@@ -65,9 +66,29 @@ export default function PlantRecordsScreen({
     p.plot.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const handleAddPlant = (e) => {
+  const handleAddPlant = async (e) => {
     e.preventDefault();
     if (!newPlantName.trim()) return;
+
+    // MODE LIVE : le back crée la fiche (identifiant, historique initial, soins par défaut) et la renvoie
+    if (onCreatePlant) {
+      try {
+        const created = await onCreatePlant({
+          name: newPlantName,
+          species: newPlantSpecies,
+          variety: newPlantVariety,
+          plot: newPlantPlot
+        });
+        setSelectedPlantId(created.id);
+        setShowAddModal(false);
+        setNewPlantName('');
+      } catch (err) {
+        alert(`Impossible d'enregistrer la culture : ${err.message}`);
+      }
+      return;
+    }
+
+    // MODE SIMULATION : création locale comme avant
 
     const newId = `P-00${plantList.length + 1}`;
     const newPlantObj = {

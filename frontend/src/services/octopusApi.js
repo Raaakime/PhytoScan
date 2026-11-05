@@ -1,7 +1,8 @@
 // Service de communication avec l'Agent IA Octopus
 
 const DEFAULT_CONFIG = {
-  baseUrl: "http://localhost:8000/api/v1",
+  // Adresse du back. Peut être fixée au déploiement avec la variable VITE_API_URL (fichier .env du front).
+  baseUrl: import.meta.env?.VITE_API_URL || "http://localhost:8000/phytoscan/v1",
   apiKey: "",
   model: "octopus-vision-v2",
   useMock: true // Par défaut en mode simulation intelligente réaliste
@@ -50,8 +51,13 @@ export async function analyzePlantImage(imageFile, options = {}) {
 
     formData.append("model", config.model);
     formData.append("include_recommendations", "true");
+    // Test : force le résultat des images d'échantillon (le back ne l'honore que avec le classifieur de test)
+    if (options.forceHealthy === true) formData.append("hint", "healthy");
+    // Plante visée (facultatif) : le back vérifie qu'elle existe
+    if (options.plantId) formData.append("plant_id", options.plantId);
 
-    const response = await fetch(`${config.baseUrl}/scan/diagnose`, {
+    // ?lang= : le back répond dans la langue demandée (fr | wo | en)
+    const response = await fetch(`${config.baseUrl}/scan/diagnose?lang=${options.lang || "fr"}`, {
       method: "POST",
       headers: {
         ...(config.apiKey ? { Authorization: `Bearer ${config.apiKey}` } : {})
@@ -145,7 +151,7 @@ export async function askOctopusAssistant(question, language = "fr", context = {
 
   if (!config.useMock && config.baseUrl) {
     try {
-      const response = await fetch(`${config.baseUrl}/assistant/ask`, {
+      const response = await fetch(`${config.baseUrl}/assistant/ask?lang=${language}`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
