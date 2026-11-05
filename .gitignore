@@ -1,0 +1,6 @@
+# Fichiers personnels & documentation locale ignorée
+DOCUMENTATION_COMPLETE.md
+PROJECT_GUIDE.md
+*.local
+.nvmrc
+
