@@ -8,11 +8,10 @@ import {
   CheckCircle2, 
   AlertCircle, 
   ArrowRight,
-  Sparkles,
   ShieldCheck,
   KeyRound
 } from 'lucide-react';
-import { loginUser, DEMO_CREDENTIALS } from '../services/authService';
+import { loginUser } from '../services/authService';
 
 export default function LoginScreen({ onNavigateToRegister, onLoginSuccess }) {
   const [email, setEmail] = useState('');
@@ -23,7 +22,7 @@ export default function LoginScreen({ onNavigateToRegister, onLoginSuccess }) {
   const [loading, setLoading] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
 
@@ -33,38 +32,15 @@ export default function LoginScreen({ onNavigateToRegister, onLoginSuccess }) {
     }
 
     setLoading(true);
+    const res = await loginUser(email, password, rememberMe);
+    setLoading(false);
 
-    setTimeout(() => {
-      const res = loginUser(email, password);
-      setLoading(false);
-
-      if (res.success) {
-        setSuccessMsg(`Ravi de vous revoir, ${res.user.name} !`);
-        setTimeout(() => {
-          if (onLoginSuccess) onLoginSuccess(res.user);
-        }, 600);
-      } else {
-        setError(res.message);
-      }
-    }, 450);
-  };
-
-  const handleUseDemoAccount = () => {
-    setEmail(DEMO_CREDENTIALS.email);
-    setPassword(DEMO_CREDENTIALS.password);
-    setError('');
-
-    setLoading(true);
-    setTimeout(() => {
-      const res = loginUser(DEMO_CREDENTIALS.email, DEMO_CREDENTIALS.password);
-      setLoading(false);
-      if (res.success) {
-        setSuccessMsg(`Connexion réussie avec le compte démo : ${res.user.name}`);
-        setTimeout(() => {
-          if (onLoginSuccess) onLoginSuccess(res.user);
-        }, 600);
-      }
-    }, 400);
+    if (res.success) {
+      setSuccessMsg(`Ravi de vous revoir, ${res.user.name} !`);
+      if (onLoginSuccess) onLoginSuccess(res.user);
+    } else {
+      setError(res.message);
+    }
   };
 
   return (
@@ -87,28 +63,6 @@ export default function LoginScreen({ onNavigateToRegister, onLoginSuccess }) {
             <p>
               Connectez-vous pour accéder à vos parcelles enregistrées, consulter les diagnostics de l'Agent IA Octopus et piloter vos soins agronomiques.
             </p>
-          </div>
-
-          <div className="auth-demo-card">
-            <div className="demo-card-header">
-              <Sparkles size={18} color="#34d399" />
-              <strong>Accès Démo Évaluateur</strong>
-            </div>
-            <p className="demo-card-desc">
-              Testez immédiatement toutes les fonctionnalités de la plateforme sans créer de compte :
-            </p>
-            <div className="demo-credentials-box">
-              <div><span>Email :</span> <code>{DEMO_CREDENTIALS.email}</code></div>
-              <div><span>Passe :</span> <code>{DEMO_CREDENTIALS.password}</code></div>
-            </div>
-            <button 
-              type="button" 
-              className="web-btn-demo-fill"
-              onClick={handleUseDemoAccount}
-            >
-              <KeyRound size={15} />
-              <span>Connexion en 1 clic au compte Démo</span>
-            </button>
           </div>
 
           <div className="auth-sidebar-footer">
@@ -224,19 +178,6 @@ export default function LoginScreen({ onNavigateToRegister, onLoginSuccess }) {
               <ArrowRight size={18} />
             </button>
           </form>
-
-          <div className="auth-divider">
-            <span>OU</span>
-          </div>
-
-          <button 
-            type="button"
-            className="web-btn-outline-demo"
-            onClick={handleUseDemoAccount}
-          >
-            <Sparkles size={16} color="#10b981" />
-            <span>Tester immédiatement avec le compte Démo</span>
-          </button>
 
           <div className="auth-footer-prompt">
             <span>Vous n'avez pas encore de compte ?</span>

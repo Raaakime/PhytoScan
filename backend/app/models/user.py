@@ -19,6 +19,8 @@ class User(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True)
     full_name: Mapped[Optional[str]] = mapped_column(String(120), default=None)
+    farm_name: Mapped[Optional[str]] = mapped_column(String(160), default=None)
+    agricultural_role: Mapped[Optional[str]] = mapped_column(String(120), default=None)
     hashed_password: Mapped[str] = mapped_column(String(255))  # jamais le mot de passe en clair
     preferred_lang: Mapped[str] = mapped_column(String(5), default="fr")  # fr | wo | en
     role: Mapped[str] = mapped_column(String(20), default="farmer")        # farmer | advisor | admin

@@ -18,10 +18,33 @@ uvicorn app.main:app --reload --port 8000
 - Au premier lancement : tables créées + 3 plantes et 4 maladies de démonstration (issues de `mockData.js`).
 - Tests : `python -m pytest`
 
+## Démarrage rapide (Linux / macOS)
+
+```bash
+cd backend
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+Pour une base existante gérée par Alembic, appliquez les migrations avant de lancer l'API :
+`alembic upgrade head`. La migration `0002` ajoute les champs d'exploitation et de profil agricole.
+Si une base de développement a déjà été créée par `create_all` et ne contient pas la table
+`alembic_version`, sauvegardez-la puis marquez le schéma initial avant d'appliquer la migration :
+`alembic stamp 0001` puis `alembic upgrade head`. Une base neuve doit utiliser directement
+`alembic upgrade head` ou laisser `AUTO_CREATE_TABLES=true` créer le schéma en développement.
+
 ## Brancher le front
 
-Dans la modale de configuration Octopus (ou `DEFAULT_CONFIG` de `octopusApi.js`) :
-`baseUrl = http://localhost:8000/phytoscan/v1` et `useMock = false`.
+Le front utilise par défaut `http://localhost:8000/phytoscan/v1`. Vous pouvez définir
+`VITE_API_BASE_URL` dans `frontend/.env.local` pour changer cette adresse. Le mode Live est sélectionné
+par défaut ; le mode simulation reste disponible depuis la modale Octopus.
+
+En développement, gardez `AUTH_REQUIRED=false` dans le back : l'inscription, la connexion JWT et les
+routes de plantes fonctionnent déjà avec les jetons transmis par le front. Les appels scan et assistant
+envoient également ce jeton lorsqu'une session existe.
 
 | Appel du front | Route back |
 |---|---|
@@ -66,7 +89,8 @@ Pour MySQL, ajouter `?charset=utf8mb4` à l'URL (accents et wolof).
 - `DATABASE_URL` PostgreSQL ou MySQL + pilote de `requirements-prod.txt`.
 - `AUTO_CREATE_TABLES=false` et `SEED_DEMO_PLANTS=false` ; lancer `alembic upgrade head` avant le démarrage.
 - `CORS_ORIGINS` = adresse réelle du front.
-- `AUTH_REQUIRED=true` seulement quand le front aura un écran de connexion (sinon il ne verra plus rien).
+- `AUTH_REQUIRED=true` peut être activé une fois le flux d'inscription et de connexion vérifié ; les routes
+  d'authentification `/auth/register` et `/auth/login` restent accessibles pour créer une session.
 - Sauvegarder le dossier `uploads/` (images des scans) et la base.
 - `Dockerfile` fourni (migrations puis serveur) : non testé dans l'environnement de développement.
 

@@ -1,10 +1,10 @@
 // Service de communication avec l'Agent IA Octopus
+import { apiRequest } from './apiClient';
 
 const DEFAULT_CONFIG = {
-  baseUrl: "http://localhost:8000/phytoscan/v1",
-  apiKey: "",
+  baseUrl: import.meta.env.VITE_API_BASE_URL || "http://localhost:8000/phytoscan/v1",
   model: "octopus-vision-v2",
-  useMock: true // Par défaut en mode simulation intelligente réaliste
+  useMock: false
 };
 
 // Chargement de la config persistée dans localStorage si existante
@@ -289,32 +289,25 @@ export async function analyzePlantImage(imageFile, options = {}) {
 
   try {
     const formData = new FormData();
-    if (typeof imageFile === "string" && imageFile.startsWith("data:")) {
-      const blob = await fetch(imageFile).then(r => r.blob());
-      formData.append("image", blob, "leaf_scan.jpg");
-    } else {
-      formData.append("image", imageFile);
-    }
+    const imageBlob = imageFile instanceof Blob
+      ? imageFile
+      : await fetch(imageFile).then(response => {
+          if (!response.ok) throw new Error(`Impossible de charger l'image (${response.status}).`);
+          return response.blob();
+        });
+    const imageName = imageFile instanceof File ? imageFile.name : "leaf_scan.jpg";
+    formData.append("image", imageBlob, imageName);
 
     formData.append("model", config.model);
     formData.append("include_recommendations", "true");
 
-    const response = await fetch(`${config.baseUrl}/scan/diagnose`, {
+    const result = await apiRequest("/scan/diagnose", {
       method: "POST",
-      headers: {
-        ...(config.apiKey ? { Authorization: `Bearer ${config.apiKey}` } : {})
-      },
       body: formData
-    });
-
-    if (!response.ok) {
-      throw new Error(`Erreur API Octopus: ${response.status} ${response.statusText}`);
-    }
-
-    return await response.json();
+    }, config.baseUrl);
+    return result;
   } catch (err) {
-    console.warn("Échec appel Octopus direct, bascule automatique sur simulation:", err.message);
-    return simulateOctopusInference(imageFile, { ...options, fallbackError: err.message });
+    throw new Error(`Échec de l'analyse par le backend : ${err.message}`);
   }
 }
 
@@ -357,17 +350,13 @@ export async function askOctopusAssistant(question, language = "fr", context = {
 
   if (!config.useMock && config.baseUrl) {
     try {
-      const response = await fetch(`${config.baseUrl}/assistant/ask`, {
+      return await apiRequest("/assistant/ask", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(config.apiKey ? { Authorization: `Bearer ${config.apiKey}` } : {})
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ question, language, context })
-      });
-      if (response.ok) return await response.json();
-    } catch {
-      console.warn("Octopus Live Assistant unreachable, fallback to smart simulation");
+      }, config.baseUrl);
+    } catch (error) {
+      throw new Error(`Échec de l'assistant backend : ${error.message}`);
     }
   }
 

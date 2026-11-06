@@ -31,6 +31,8 @@ export default function ScanScreen({
   const [hasScanned, setHasScanned] = useState(false);
   const [scanProgress, setScanProgress] = useState(0);
   const [hasSavedDiagnostic, setHasSavedDiagnostic] = useState(false);
+  const [isSavingDiagnostic, setIsSavingDiagnostic] = useState(false);
+  const [saveError, setSaveError] = useState('');
   const [analysisResult, setAnalysisResult] = useState({
     status: 'malade',
     statusLabel: 'Maladie détectée',
@@ -168,6 +170,29 @@ export default function ScanScreen({
     setUseCameraStream(false);
     setCurrentImage(imagePath);
     handleTriggerScan(type, imagePath);
+  };
+
+  const handleSaveDiagnostic = async () => {
+    if (!onSaveDiagnosticToPlant || isSavingDiagnostic) return;
+
+    setIsSavingDiagnostic(true);
+    setSaveError('');
+    try {
+      await onSaveDiagnosticToPlant({
+        plantId: targetPlant ? targetPlant.id : (plants?.[0]?.id || 'P-001'),
+        status: analysisResult.status,
+        statusLabel: analysisResult.statusLabel,
+        diseaseName: analysisResult.diseaseName,
+        confidence: analysisResult.confidence,
+        remedies: analysisResult.remedies,
+        date: new Date().toLocaleDateString('fr-FR')
+      });
+      setHasSavedDiagnostic(true);
+    } catch (error) {
+      setSaveError(error.message);
+    } finally {
+      setIsSavingDiagnostic(false);
+    }
   };
 
   return (
@@ -470,28 +495,19 @@ export default function ScanScreen({
               <button 
                 type="button" 
                 className={`web-btn-save-record ${hasSavedDiagnostic ? 'saved' : ''}`}
-                onClick={() => {
-                  setHasSavedDiagnostic(true);
-                  if (onSaveDiagnosticToPlant) {
-                    onSaveDiagnosticToPlant({
-                      plantId: targetPlant ? targetPlant.id : (plants?.[0]?.id || 'P-001'),
-                      status: analysisResult.status,
-                      statusLabel: analysisResult.statusLabel,
-                      diseaseName: analysisResult.diseaseName,
-                      confidence: analysisResult.confidence,
-                      remedies: analysisResult.remedies,
-                      date: new Date().toLocaleDateString('fr-FR')
-                    });
-                  }
-                }}
+                onClick={handleSaveDiagnostic}
+                disabled={isSavingDiagnostic || hasSavedDiagnostic || (!targetPlant && plants.length === 0)}
               >
                 <BookmarkCheck size={18} />
                 <span>
-                  {hasSavedDiagnostic 
+                  {isSavingDiagnostic
+                    ? 'Enregistrement en cours...'
+                    : hasSavedDiagnostic
                     ? "Diagnostic enregistré avec succès dans le carnet de santé !" 
                     : "Enregistrer ce diagnostic dans le carnet de santé de la plante"}
                 </span>
               </button>
+              {saveError && <div className="auth-alert-box danger" role="alert">{saveError}</div>}
             </div>
           ) : (
             <div className="web-card scan-awaiting-card">

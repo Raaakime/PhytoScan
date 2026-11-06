@@ -11,6 +11,8 @@ class UserCreate(CamelModel):
     email: EmailStr
     password: str = Field(min_length=8, max_length=72)   # 72 = limite de bcrypt
     full_name: Optional[str] = Field(default=None, max_length=120)
+    farm_name: Optional[str] = Field(default=None, max_length=160)
+    agricultural_role: Optional[str] = Field(default=None, max_length=120)
     preferred_lang: str = "fr"
 
 
@@ -18,6 +20,8 @@ class UserOut(CamelModel):
     id: int
     email: EmailStr
     full_name: Optional[str] = None
+    farm_name: Optional[str] = None
+    agricultural_role: Optional[str] = None
     preferred_lang: str
     role: str
     created_at: datetime

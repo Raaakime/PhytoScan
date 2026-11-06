@@ -9,24 +9,7 @@ import FooterBanner from './components/FooterBanner';
 import OctopusConfigModal from './components/OctopusConfigModal';
 import { getOctopusConfig } from './services/octopusApi';
 import { getCurrentUser, logoutUser } from './services/authService';
-import { INITIAL_PLANTS } from './data/mockData';
-
-const PLANTS_STORAGE_KEY = 'phytoscan_plants_data';
-
-const loadPersistedPlants = () => {
-  try {
-    const saved = localStorage.getItem(PLANTS_STORAGE_KEY);
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed;
-      }
-    }
-  } catch (err) {
-    console.warn('Impossible de charger les plantes depuis localStorage:', err);
-  }
-  return INITIAL_PLANTS;
-};
+import { createPlant, listPlants, savePlantDiagnostic } from './services/plantsApi';
 
 export default function App() {
   // Navigation entre les pages du site web
@@ -35,9 +18,34 @@ export default function App() {
   const [activeScreen, setActiveScreen] = useState(initialScreen); // 'scan' | 'plants' | 'assistant' | 'login' | 'register'
   const [navigationHistory, setNavigationHistory] = useState([initialScreen]);
   const [navigationParams, setNavigationParams] = useState({});
-  const [plantsList, setPlantsList] = useState(loadPersistedPlants);
+  const [plantsList, setPlantsList] = useState([]);
+  const [plantsError, setPlantsError] = useState('');
   const [isOctopusModalOpen, setIsOctopusModalOpen] = useState(false);
   const [octopusConfig, setOctopusConfig] = useState(getOctopusConfig());
+
+  useEffect(() => {
+    if (!currentUser) {
+      setPlantsList([]);
+      setPlantsError('');
+      return undefined;
+    }
+
+    let cancelled = false;
+    listPlants()
+      .then(plants => {
+        if (!cancelled) {
+          setPlantsList(plants);
+          setPlantsError('');
+        }
+      })
+      .catch(error => {
+        if (!cancelled) setPlantsError(`Impossible de charger les cultures : ${error.message}`);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [currentUser]);
 
   const handleLoginSuccess = (user) => {
     setCurrentUser(user);
@@ -56,19 +64,11 @@ export default function App() {
   const handleLogout = () => {
     logoutUser();
     setCurrentUser(null);
+    setPlantsList([]);
     setNavigationParams({});
     setNavigationHistory(['register']);
     setActiveScreen('register');
   };
-
-  // Sauvegarde automatique dans localStorage à chaque mise à jour des cultures
-  useEffect(() => {
-    try {
-      localStorage.setItem(PLANTS_STORAGE_KEY, JSON.stringify(plantsList));
-    } catch (err) {
-      console.error('Erreur lors de la sauvegarde des cultures dans localStorage:', err);
-    }
-  }, [plantsList]);
 
   // Calcul dynamique du nombre d'alertes phytosanitaires actives
   const activeAlertCount = plantsList.filter(
@@ -97,69 +97,28 @@ export default function App() {
     }
   };
 
-  // Enregistrement d'un résultat de diagnostic dans la plante ciblée
-  const handleSaveDiagnosticToPlant = ({
-    plantId,
-    status,
-    diseaseName,
-    confidence,
-    remedies,
-    date
-  }) => {
-    const obsDate = date || new Date().toLocaleDateString('fr-FR');
-    const isHealthy =
-      status === 'saine' ||
-      diseaseName.toLowerCase().includes('sain') ||
-      diseaseName.toLowerCase().includes('aucune anomalie');
-    const isWatch = status === 'surveiller';
+  const handleCreatePlant = async (plantData) => {
+    try {
+      const plant = await createPlant(plantData);
+      setPlantsList(previous => [plant, ...previous]);
+      setPlantsError('');
+      return plant;
+    } catch (error) {
+      setPlantsError(`Impossible d'ajouter la culture : ${error.message}`);
+      throw error;
+    }
+  };
 
-    const resolvedStatus = isHealthy ? 'saine' : isWatch ? 'surveiller' : 'malade';
-    const resolvedLabel = isHealthy ? 'Saine' : isWatch ? 'À surveiller' : 'Malade';
-    const resolvedScore = isHealthy ? 98 : isWatch ? 72 : 42;
-    const resolvedAlert = isHealthy
-      ? null
-      : isWatch
-        ? `Suspicion détectée : ${diseaseName} (${confidence}). Surveillance et traitement préventif conseillés.`
-        : `Diagnostic IA : ${diseaseName} (${confidence}). Traitement d'urgence requis.`;
-
-    setPlantsList(prevPlants => {
-      return prevPlants.map(plant => {
-        if (plant.id === plantId) {
-          const newHistoryItem = {
-            date: obsDate,
-            type: 'Diagnostic IA',
-            result: `${diseaseName} (${confidence})`,
-            notes: remedies && remedies.length > 0
-              ? `Recommandation clé : ${remedies[0]}`
-              : 'Diagnostic automatique enregistré via la vision par ordinateur.'
-          };
-
-          const updatedCare =
-            !isHealthy && remedies && remedies.length > 0
-              ? [
-                  {
-                    task: remedies[0],
-                    frequency: 'Immédiat (Suite au scan IA)',
-                    status: isWatch ? 'Préventif' : 'Urgent (24h)'
-                  },
-                  ...(plant.care || [])
-                ]
-              : plant.care || [];
-
-          return {
-            ...plant,
-            status: resolvedStatus,
-            statusLabel: resolvedLabel,
-            healthScore: resolvedScore,
-            alert: resolvedAlert,
-            lastObservation: obsDate,
-            history: [newHistoryItem, ...(plant.history || [])],
-            care: updatedCare
-          };
-        }
-        return plant;
-      });
-    });
+  const handleSaveDiagnosticToPlant = async (diagnostic) => {
+    try {
+      const plant = await savePlantDiagnostic(diagnostic.plantId, diagnostic);
+      setPlantsList(previous => previous.map(item => item.id === plant.id ? plant : item));
+      setPlantsError('');
+      return plant;
+    } catch (error) {
+      setPlantsError(`Impossible d'enregistrer le diagnostic : ${error.message}`);
+      throw error;
+    }
   };
 
   // Rendu de la page active du site
@@ -181,7 +140,7 @@ export default function App() {
         return (
           <PlantRecordsScreen 
             plants={plantsList}
-            onUpdatePlants={(updated) => setPlantsList(updated)}
+            onCreatePlant={handleCreatePlant}
             initialPlantId={navigationParams?.plantId || 'P-001'}
             onNavigateToScan={(params) => navigateTo('scan', params)}
             onNavigateToAssistant={(params) => navigateTo('assistant', params)}
@@ -239,6 +198,7 @@ export default function App() {
 
       {/* Contenu principal de la page web */}
       <main className="website-main-content">
+        {plantsError && <div className="auth-alert-box danger" role="alert">{plantsError}</div>}
         {renderCurrentScreen()}
       </main>
 

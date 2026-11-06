@@ -20,7 +20,7 @@ import { INITIAL_PLANTS } from '../data/mockData';
 
 export default function PlantRecordsScreen({ 
   plants = INITIAL_PLANTS, 
-  onUpdatePlants,
+  onCreatePlant,
   initialPlantId = 'P-001',
   onNavigateToScan, 
   onNavigateToAssistant 
@@ -30,6 +30,8 @@ export default function PlantRecordsScreen({
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('details'); // 'details' | 'history' | 'care' | 'observations'
   const [showAddModal, setShowAddModal] = useState(false);
+  const [isSavingPlant, setIsSavingPlant] = useState(false);
+  const [saveError, setSaveError] = useState('');
 
   // Formulaire d'ajout
   const [newPlantName, setNewPlantName] = useState('');
@@ -44,7 +46,7 @@ export default function PlantRecordsScreen({
   }, [initialPlantId]);
 
   useEffect(() => {
-    if (plants && plants.length > 0) {
+    if (plants) {
       setPlantList(plants);
     }
   }, [plants]);
@@ -58,55 +60,34 @@ export default function PlantRecordsScreen({
     p.plot.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const handleAddPlant = (e) => {
+  const handleAddPlant = async (e) => {
     e.preventDefault();
-    if (!newPlantName.trim()) return;
+    if (!newPlantName.trim() || !onCreatePlant) return;
 
-    const nextNum = plantList.length + 1;
-    const newId = `P-${String(nextNum).padStart(3, "0")}`;
     const speciesImage = newPlantSpecies.toLowerCase().includes("aubergine")
       ? "/assets/plante_2.jpg"
       : newPlantSpecies.toLowerCase().includes("piment") || newPlantSpecies.toLowerCase().includes("poivron")
         ? "/assets/plante_3.jpg"
         : "/assets/plante_1.jpg";
-    const newPlantObj = {
-      id: newId,
-      name: newPlantName,
-      species: newPlantSpecies,
-      variety: newPlantVariety,
-      status: "saine",
-      statusLabel: "Saine",
-      growthStage: "Semis / Végétatif",
-      plantingDate: new Date().toLocaleDateString("fr-FR"),
-      lastObservation: new Date().toLocaleDateString("fr-FR"),
-      plot: newPlantPlot,
-      waterSchedule: "Goutte-à-goutte (quotidien)",
-      image: speciesImage,
-      healthScore: 96,
-      details: {
-        yieldEstimate: "4.0 kg / pied",
-        soilMoisture: "62%",
-        temperature: "24°C",
-        notes: "Culture enregistrée dans le carnet agronomique PhytoScan."
-      },
-      history: [
-        { date: new Date().toLocaleDateString("fr-FR"), type: "Enregistrement", result: "Culture initialisée", notes: "Semis et repiquage validés." }
-      ],
-      care: [
-        { task: "Arrosage matinal", frequency: "Quotidien", status: "En cours" },
-        { task: "Paillage racinaire", frequency: "Mensuel", status: "À prévoir" }
-      ],
-      observations: [
-        { date: new Date().toLocaleDateString("fr-FR"), author: "Agriculteur", text: "Plantation réalisée en conditions optimales." }
-      ]
-    };
-
-    const updated = [newPlantObj, ...plantList];
-    setPlantList(updated);
-    if (onUpdatePlants) onUpdatePlants(updated);
-    setSelectedPlantId(newId);
-    setShowAddModal(false);
-    setNewPlantName('');
+    setIsSavingPlant(true);
+    setSaveError('');
+    try {
+      const createdPlant = await onCreatePlant({
+        name: newPlantName.trim(),
+        species: newPlantSpecies,
+        variety: newPlantVariety.trim() || null,
+        plot: newPlantPlot.trim() || null,
+        image: speciesImage
+      });
+      setPlantList(previous => [createdPlant, ...previous]);
+      setSelectedPlantId(createdPlant.id);
+      setShowAddModal(false);
+      setNewPlantName('');
+    } catch (error) {
+      setSaveError(error.message);
+    } finally {
+      setIsSavingPlant(false);
+    }
   };
 
   return (
@@ -515,6 +496,7 @@ export default function PlantRecordsScreen({
             </div>
 
             <form onSubmit={handleAddPlant} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              {saveError && <div className="auth-alert-box danger" role="alert">{saveError}</div>}
               <div className="form-group">
                 <label className="form-label">Nom usuel de la plante *</label>
                 <input 
@@ -564,8 +546,8 @@ export default function PlantRecordsScreen({
               </div>
 
               <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
-                <button type="submit" className="web-btn-primary" style={{ flex: 1 }}>
-                  Confirmer et créer la fiche
+                <button type="submit" className="web-btn-primary" style={{ flex: 1 }} disabled={isSavingPlant}>
+                  {isSavingPlant ? 'Enregistrement...' : 'Confirmer et créer la fiche'}
                 </button>
                 <button 
                   type="button" 

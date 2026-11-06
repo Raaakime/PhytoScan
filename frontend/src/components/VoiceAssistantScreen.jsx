@@ -101,8 +101,18 @@ export default function VoiceAssistantScreen({
         }
       ]);
       speakText(botReply.text);
-    } catch {
+    } catch (error) {
       setWaveformActive(false);
+      setMessages(prev => [
+        ...prev,
+        {
+          id: `e-${Date.now()}`,
+          sender: 'bot',
+          text: error.message || 'Impossible de joindre le serveur. Vérifiez la connexion puis réessayez.',
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          hasAudio: false
+        }
+      ]);
     }
   }, [inputText, currentLang, plants, speakText]);
 

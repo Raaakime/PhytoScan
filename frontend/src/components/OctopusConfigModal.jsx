@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Cpu, Check, AlertCircle, Save, RefreshCw } from 'lucide-react';
 import { getOctopusConfig, saveOctopusConfig } from '../services/octopusApi';
+import { apiRequest } from '../services/apiClient';
 
 export default function OctopusConfigModal({ isOpen, onClose, onConfigSaved }) {
   const [config, setConfig] = useState(getOctopusConfig());
@@ -32,21 +33,11 @@ export default function OctopusConfigModal({ isOpen, onClose, onConfigSaved }) {
     }
 
     try {
-      const response = await fetch(`${config.baseUrl}/health`, {
-        method: 'GET',
-        headers: config.apiKey ? { Authorization: `Bearer ${config.apiKey}` } : {}
+      await apiRequest('/health', {}, config.baseUrl);
+      setTestResult({
+        success: true,
+        message: "Connexion réussie avec le backend PhytoScan !"
       });
-      if (response.ok) {
-        setTestResult({
-          success: true,
-          message: "Connexion réussie avec le backend Octopus !"
-        });
-      } else {
-        setTestResult({
-          success: false,
-          message: `Le serveur a répondu avec le statut ${response.status}.`
-        });
-      }
     } catch (err) {
       setTestResult({
         success: false,
@@ -110,17 +101,6 @@ export default function OctopusConfigModal({ isOpen, onClose, onConfigSaved }) {
                   value={config.baseUrl}
                   onChange={(e) => setConfig({ ...config, baseUrl: e.target.value })}
                   required={!config.useMock}
-                />
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Clé d'API (Optionnelle)</label>
-                <input 
-                  type="password" 
-                  className="form-input" 
-                  placeholder="oct_live_..."
-                  value={config.apiKey}
-                  onChange={(e) => setConfig({ ...config, apiKey: e.target.value })}
                 />
               </div>
 

@@ -20,7 +20,9 @@ def register_user(db: Session, data: UserCreate) -> User:
     if db.scalar(select(User).where(User.email == email)):
         raise ConflictError("Un compte existe déjà avec cet e-mail.")
     user = User(email=email, hashed_password=hash_password(data.password),
-                full_name=data.full_name, preferred_lang=normalize_lang(data.preferred_lang))
+                full_name=data.full_name, farm_name=data.farm_name,
+                agricultural_role=data.agricultural_role,
+                preferred_lang=normalize_lang(data.preferred_lang))
     db.add(user)
     db.commit()
     return user

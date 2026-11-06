@@ -37,7 +37,7 @@ export default function RegisterScreen({ onNavigateToLogin, onRegisterSuccess })
     if (error) setError('');
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
 
@@ -49,8 +49,12 @@ export default function RegisterScreen({ onNavigateToLogin, onRegisterSuccess })
       setError('Veuillez renseigner une adresse email valide.');
       return;
     }
-    if (formData.password.length < 6) {
-      setError('Le mot de passe doit comporter au moins 6 caractères.');
+    if (formData.password.length < 8) {
+      setError('Le mot de passe doit comporter au moins 8 caractères.');
+      return;
+    }
+    if (formData.password.length > 72) {
+      setError('Le mot de passe ne peut pas dépasser 72 caractères.');
       return;
     }
     if (formData.password !== formData.confirmPassword) {
@@ -63,27 +67,21 @@ export default function RegisterScreen({ onNavigateToLogin, onRegisterSuccess })
     }
 
     setLoading(true);
+    const res = await registerUser({
+      name: formData.name,
+      email: formData.email,
+      password: formData.password,
+      farmName: formData.farmName,
+      role: formData.role
+    });
+    setLoading(false);
 
-    setTimeout(() => {
-      const res = registerUser({
-        name: formData.name,
-        email: formData.email,
-        password: formData.password,
-        farmName: formData.farmName,
-        role: formData.role
-      });
-
-      setLoading(false);
-
-      if (res.success) {
-        setSuccessMsg('Compte créé avec succès ! Connexion automatique...');
-        setTimeout(() => {
-          if (onRegisterSuccess) onRegisterSuccess(res.user);
-        }, 800);
-      } else {
-        setError(res.message);
-      }
-    }, 500);
+    if (res.success) {
+      setSuccessMsg('Compte créé avec succès ! Connexion automatique...');
+      if (onRegisterSuccess) onRegisterSuccess(res.user);
+    } else {
+      setError(res.message);
+    }
   };
 
   return (
@@ -255,7 +253,8 @@ export default function RegisterScreen({ onNavigateToLogin, onRegisterSuccess })
                   <input 
                     type={showPassword ? 'text' : 'password'} 
                     className="auth-input"
-                    placeholder="Au moins 6 caractères"
+                    placeholder="Au moins 8 caractères"
+                    maxLength={72}
                     value={formData.password}
                     onChange={e => handleChange('password', e.target.value)}
                     required

@@ -103,8 +103,18 @@ def test_assistant_answers_in_three_languages(client):
 
 # ---------------- authentification ----------------
 def test_auth_flow(client):
-    creds = {"email": "Awa@Example.com", "password": "motdepasse123", "fullName": "Awa", "preferredLang": "wo"}
-    assert client.post(f"{API}/auth/register", json=creds).status_code == 201
+    creds = {
+        "email": "Awa@Example.com",
+        "password": "motdepasse123",
+        "fullName": "Awa",
+        "farmName": "Ferme des Niayes",
+        "agriculturalRole": "Maraîcher / Exploitant Agricole",
+        "preferredLang": "wo",
+    }
+    registered = client.post(f"{API}/auth/register", json=creds)
+    assert registered.status_code == 201
+    assert registered.json()["farmName"] == creds["farmName"]
+    assert registered.json()["agriculturalRole"] == creds["agriculturalRole"]
     assert client.post(f"{API}/auth/register", json=creds).status_code == 409   # e-mail déjà pris
 
     bad = client.post(f"{API}/auth/login", data={"username": "awa@example.com", "password": "faux"})
