@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { register, login } from '../services/authService';
+import { saveProfileExtras } from '../services/profileExtras';
 import { 
   Leaf, 
   User, 
@@ -13,7 +15,7 @@ import {
   ShieldCheck,
   Sprout
 } from 'lucide-react';
-import { registerUser } from '../services/authService';
+
 
 export default function RegisterScreen({ onNavigateToLogin, onRegisterSuccess }) {
   const [formData, setFormData] = useState({
@@ -32,59 +34,40 @@ export default function RegisterScreen({ onNavigateToLogin, onRegisterSuccess })
   const [successMsg, setSuccessMsg] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleChange = (field, value) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-    if (error) setError('');
-  };
+      const handleChange = (field, value) => {
+        setFormData(prev => ({ ...prev, [field]: value }));
+        if (error) setError('');
+      };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    setError('');
+      const handleSubmit = async (e) => {
+      e.preventDefault();
+      setError('');
 
-    if (!formData.name.trim()) {
-      setError('Veuillez renseigner votre nom complet.');
-      return;
-    }
-    if (!formData.email.trim() || !formData.email.includes('@')) {
-      setError('Veuillez renseigner une adresse email valide.');
-      return;
-    }
-    if (formData.password.length < 6) {
-      setError('Le mot de passe doit comporter au moins 6 caractères.');
-      return;
-    }
-    if (formData.password !== formData.confirmPassword) {
-      setError('Les mots de passe ne correspondent pas.');
-      return;
-    }
-    if (!formData.acceptTerms) {
-      setError('Veuillez accepter les conditions d\'utilisation.');
-      return;
-    }
+      if (!formData.name.trim()) { setError('Veuillez renseigner votre nom complet.'); return; }
+      if (!formData.email.trim() || !formData.email.includes('@')) { setError('Veuillez renseigner une adresse email valide.'); return; }
+      if (formData.password.length < 8) { setError('Le mot de passe doit comporter au moins 8 caractères.'); return; }
+      if (formData.password !== formData.confirmPassword) { setError('Les mots de passe ne correspondent pas.'); return; }
+      if (!formData.acceptTerms) { setError("Veuillez accepter les conditions d'utilisation."); return; }
 
-    setLoading(true);
+      setLoading(true);
+      try {
+        await register({
+          email: formData.email,
+          password: formData.password,
+          fullName: formData.name,
+          preferredLang: 'fr'
+        });
+        saveProfileExtras(formData.email, { farmName: formData.farmName.trim(), jobRole: formData.role });
 
-    setTimeout(() => {
-      const res = registerUser({
-        name: formData.name,
-        email: formData.email,
-        password: formData.password,
-        farmName: formData.farmName,
-        role: formData.role
-      });
-
-      setLoading(false);
-
-      if (res.success) {
+        const user = await login(formData.email, formData.password); // connexion automatique
         setSuccessMsg('Compte créé avec succès ! Connexion automatique...');
-        setTimeout(() => {
-          if (onRegisterSuccess) onRegisterSuccess(res.user);
-        }, 800);
-      } else {
-        setError(res.message);
+        setTimeout(() => onRegisterSuccess?.(user), 800);
+      } catch (err) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
       }
-    }, 500);
-  };
+    };
 
   return (
     <div className="web-page-container">
@@ -255,8 +238,9 @@ export default function RegisterScreen({ onNavigateToLogin, onRegisterSuccess })
                   <input 
                     type={showPassword ? 'text' : 'password'} 
                     className="auth-input"
-                    placeholder="Au moins 6 caractères"
+                    placeholder="Au moins 8 caractères"
                     value={formData.password}
+                    maxLength={72}
                     onChange={e => handleChange('password', e.target.value)}
                     required
                   />

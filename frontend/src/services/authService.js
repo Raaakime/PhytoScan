@@ -1,148 +1,154 @@
-// Service d'authentification et gestion des utilisateurs PhytoScan AI
+// Authentification : inscription, connexion, session et renouvellement automatique du jeton.
+//
+// La session (jetons + profil) est conservée dans le localStorage pour survivre au rechargement de la page.
+// Limite connue : un localStorage est lisible par tout script de la page (risque XSS). Acceptable pour
+// cette étape ; pour la production, privilégier des cookies HttpOnly (évolution à faire côté back et front).
 
-const USERS_STORAGE_KEY = 'phytoscan_users_db';
-const AUTH_USER_KEY = 'phytoscan_auth_user';
+import { getOctopusConfig } from "./octopusApi";
 
-// Utilisateur de démonstration par défaut
-const DEFAULT_DEMO_USER = {
-  id: 'usr_demo_01',
-  name: 'Amadou Diallo',
-  email: 'amadou.diallo@ferme-bio.sn',
-  password: 'password123',
-  role: 'Maraîcher / Exploitant Agricole',
-  farmName: 'Ferme Agro-Écologique des Niayes',
-  location: 'Dakar / Thiès, Sénégal',
-  avatarColor: '#10b981',
-  createdAt: '2025-01-15'
+const SESSION_KEY = "phytoscan_auth_session";
+/** Événement émis à chaque changement de session (connexion, déconnexion, jeton expiré). */
+export const SESSION_EVENT = "phytoscan:session-changed";
+
+const notify = () => {
+  if (typeof window !== "undefined") window.dispatchEvent(new Event(SESSION_EVENT));
 };
 
-/**
- * Récupère tous les utilisateurs enregistrés dans le localStorage
- */
-export const getStoredUsers = () => {
+// ---------------------------------------------------------------- session
+export const getSession = () => {
   try {
-    const data = localStorage.getItem(USERS_STORAGE_KEY);
-    if (!data) {
-      const initialUsers = [DEFAULT_DEMO_USER];
-      localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(initialUsers));
-      return initialUsers;
-    }
-    const parsed = JSON.parse(data);
-    return Array.isArray(parsed) && parsed.length > 0 ? parsed : [DEFAULT_DEMO_USER];
-  } catch (err) {
-    console.error('Erreur lecture utilisateurs:', err);
-    return [DEFAULT_DEMO_USER];
-  }
-};
-
-/**
- * Sauvegarde la liste des utilisateurs dans le localStorage
- */
-const saveUsers = (users) => {
-  try {
-    localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(users));
-  } catch (err) {
-    console.error('Erreur sauvegarde utilisateurs:', err);
-  }
-};
-
-/**
- * Récupère l'utilisateur actuellement connecté
- */
-export const getCurrentUser = () => {
-  try {
-    const data = localStorage.getItem(AUTH_USER_KEY);
-    return data ? JSON.parse(data) : null;
+    return JSON.parse(localStorage.getItem(SESSION_KEY)) || null;
   } catch {
     return null;
   }
 };
+const saveSession = (session) => localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+const clearSession = () => localStorage.removeItem(SESSION_KEY);
+
+export const getAccessToken = () => getSession()?.accessToken || null;
+/** Profil de l'utilisateur connecté ({ id, email, fullName, preferredLang, role }) ou null. */
+export const getCurrentUser = () => getSession()?.user || null;
+
+// ---------------------------------------------------------------- utilitaires HTTP
+const baseUrl = () => getOctopusConfig().baseUrl.replace(/\/$/, "");
+
+/** fetch avec un message d'erreur clair si le serveur est injoignable. */
+async function call(path, init) {
+  try {
+    return await fetch(`${baseUrl()}${path}`, init);
+  } catch {
+    throw new Error("Impossible de joindre le serveur PhytoScan. Vérifiez qu'il est lancé et que l'adresse est correcte.");
+  }
+}
+
+/** Transforme une réponse d'erreur du back en message lisible. */
+async function readError(response) {
+  if (response.status === 422) {
+    return "Données invalides : vérifiez l'e-mail et choisissez un mot de passe de 8 caractères minimum.";
+  }
+  try {
+    const data = await response.json();
+    if (typeof data.detail === "string") return data.detail; // messages métier du back (en français)
+  } catch { /* corps non JSON */ }
+  return `Erreur serveur (${response.status}).`;
+}
+
+// ---------------------------------------------------------------- inscription / connexion
+/** Crée un compte. Ne connecte pas : appeler ensuite login(). */
+export async function register({ email, password, fullName, preferredLang = "fr" }) {
+  const response = await call("/auth/register", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email: email.trim(), password, fullName: fullName?.trim() || null, preferredLang })
+  });
+  if (!response.ok) throw new Error(await readError(response));
+  return response.json();
+}
+
+/** Connecte l'utilisateur, récupère son profil et enregistre la session. */
+export async function login(email, password) {
+  // Le back utilise le formulaire OAuth2 standard : le champ s'appelle "username" mais contient l'e-mail
+  const response = await call("/auth/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ username: email.trim(), password })
+  });
+  if (!response.ok) throw new Error(await readError(response));
+  const tokens = await response.json();
+
+  const meResponse = await call("/auth/me", { headers: { Authorization: `Bearer ${tokens.access_token}` } });
+  if (!meResponse.ok) throw new Error(await readError(meResponse));
+  const user = await meResponse.json();
+
+  saveSession({ accessToken: tokens.access_token, refreshToken: tokens.refresh_token, user });
+  notify();
+  return user;
+}
+
+/** Déconnecte l'utilisateur (efface la session locale). */
+export function logout() {
+  clearSession();
+  notify();
+}
+
+/** Demande au serveur s'il impose la connexion (AUTH_REQUIRED). */
+export async function checkAuthRequired() {
+  const response = await call("/health");
+  if (!response.ok) return false;
+  return (await response.json()).authRequired === true;
+}
+
+// ---------------------------------------------------------------- renouvellement du jeton
+let refreshInFlight = null; // évite plusieurs renouvellements simultanés
+
+/** Renvoie "ok" (nouveaux jetons enregistrés), "invalid" (refus du serveur) ou "error" (réseau). */
+async function refreshTokens() {
+  if (!refreshInFlight) {
+    refreshInFlight = (async () => {
+      const session = getSession();
+      if (!session?.refreshToken) return "invalid";
+      try {
+        const response = await fetch(`${baseUrl()}/auth/refresh`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ refresh_token: session.refreshToken })
+        });
+        if (response.status === 401) return "invalid";
+        if (!response.ok) return "error";
+        const tokens = await response.json();
+        saveSession({ ...session, accessToken: tokens.access_token, refreshToken: tokens.refresh_token });
+        return "ok";
+      } catch {
+        return "error";
+      }
+    })().finally(() => { refreshInFlight = null; });
+  }
+  return refreshInFlight;
+}
 
 /**
- * Inscription d'un nouvel utilisateur
+ * fetch authentifié : ajoute le jeton de l'utilisateur connecté (à défaut, la « clé d'API » de la modale Octopus).
+ * Si le serveur répond 401 et qu'une session existe, renouvelle le jeton UNE fois puis rejoue la requête.
+ * Si le renouvellement est refusé, la session est effacée (l'application affichera la connexion).
  */
-export const registerUser = ({ name, email, password, farmName, role }) => {
-  if (!name || !email || !password) {
-    return { success: false, message: 'Veuillez remplir tous les champs obligatoires.' };
-  }
-
-  const cleanEmail = email.trim().toLowerCase();
-  const users = getStoredUsers();
-
-  const existing = users.find(u => u.email.toLowerCase() === cleanEmail);
-  if (existing) {
-    return { success: false, message: 'Un compte avec cette adresse email existe déjà.' };
-  }
-
-  const newUser = {
-    id: `usr_${Date.now().toString(36)}`,
-    name: name.trim(),
-    email: cleanEmail,
-    password, // En environnement de démo client-side
-    role: role || 'Agriculteur / Maraîcher',
-    farmName: farmName ? farmName.trim() : 'Exploitation Agricole',
-    avatarColor: ['#10b981', '#059669', '#0d9488', '#16a34a', '#2563eb'][Math.floor(Math.random() * 5)],
-    createdAt: new Date().toLocaleDateString('fr-FR')
+export async function authFetch(url, options = {}) {
+  const send = () => {
+    const token = getAccessToken() || getOctopusConfig().apiKey;
+    return fetch(url, {
+      ...options,
+      headers: { ...(options.headers || {}), ...(token ? { Authorization: `Bearer ${token}` } : {}) }
+    });
   };
 
-  users.push(newUser);
-  saveUsers(users);
-
-  // Connexion automatique après inscription réussie
-  try {
-    localStorage.setItem(AUTH_USER_KEY, JSON.stringify(newUser));
-  } catch (err) {
-    console.error('Erreur stockage session:', err);
+  let response = await send();
+  if (response.status === 401 && getSession()?.refreshToken) {
+    const outcome = await refreshTokens();
+    if (outcome === "ok") {
+      response = await send();
+    } else if (outcome === "invalid") {
+      clearSession();
+      notify();
+    }
   }
-
-  return { success: true, user: newUser };
-};
-
-/**
- * Connexion d'un utilisateur existant
- */
-export const loginUser = (email, password) => {
-  if (!email || !password) {
-    return { success: false, message: 'Veuillez saisir votre email et votre mot de passe.' };
-  }
-
-  const cleanEmail = email.trim().toLowerCase();
-  const users = getStoredUsers();
-
-  const user = users.find(u => u.email.toLowerCase() === cleanEmail);
-  if (!user) {
-    return { success: false, message: 'Aucun compte trouvé avec cet email.' };
-  }
-
-  if (user.password !== password) {
-    return { success: false, message: 'Mot de passe incorrect. Veuillez réessayer.' };
-  }
-
-  try {
-    localStorage.setItem(AUTH_USER_KEY, JSON.stringify(user));
-  } catch (err) {
-    console.error('Erreur stockage session:', err);
-  }
-
-  return { success: true, user };
-};
-
-/**
- * Déconnexion
- */
-export const logoutUser = () => {
-  try {
-    localStorage.removeItem(AUTH_USER_KEY);
-  } catch (err) {
-    console.error('Erreur déconnexion:', err);
-  }
-};
-
-/**
- * Utilisateur de démonstration prêt à l'emploi
- */
-export const DEMO_CREDENTIALS = {
-  email: DEFAULT_DEMO_USER.email,
-  password: DEFAULT_DEMO_USER.password
-};
-
+  return response;
+}
