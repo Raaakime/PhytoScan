@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Cpu, Check, AlertCircle, Save, RefreshCw } from 'lucide-react';
 import { getOctopusConfig, saveOctopusConfig } from '../services/octopusApi';
 
@@ -106,7 +106,7 @@ export default function OctopusConfigModal({ isOpen, onClose, onConfigSaved }) {
                 <input 
                   type="url" 
                   className="form-input" 
-                  placeholder="http://localhost:8000/phytoscan/v1"
+                  placeholder="http://localhost:8000/api/v1"
                   value={config.baseUrl}
                   onChange={(e) => setConfig({ ...config, baseUrl: e.target.value })}
                   required={!config.useMock}

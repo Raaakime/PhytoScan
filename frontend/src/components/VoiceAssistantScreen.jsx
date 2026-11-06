@@ -1,13 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { 
   Mic, 
   MicOff, 
   Send, 
   Volume2, 
-  VolumeX, 
   Bell, 
-  ChevronRight, 
-  Sparkles, 
   Leaf,
   Camera,
   FolderHeart,
@@ -15,18 +12,18 @@ import {
   ShieldAlert,
   AlertTriangle,
   Cpu,
-  CheckCircle2,
-  HelpCircle
+  CheckCircle2
 } from 'lucide-react';
 import { 
   ASSISTANT_LANGUAGES, 
   INITIAL_CHAT_MESSAGES, 
+  INITIAL_PLANTS,
   SAMPLE_QUESTIONS 
 } from '../data/mockData';
 import { askOctopusAssistant } from '../services/octopusApi';
 
-export default function VoiceAssistantScreen({
-  alerts = null, // liste calculée par App.jsx (null = anciennes alertes statiques) 
+export default function VoiceAssistantScreen({ 
+  plants = INITIAL_PLANTS,
   initialQuery = '', 
   onClearInitialQuery,
   onNavigateToScan, 
@@ -41,24 +38,19 @@ export default function VoiceAssistantScreen({
   const [waveformActive, setWaveformActive] = useState(false);
 
   const chatBottomRef = useRef(null);
+  const recognitionRef = useRef(null);
 
-  useEffect(() => {
-    setMessages(INITIAL_CHAT_MESSAGES[currentLang] || INITIAL_CHAT_MESSAGES.fr);
-  }, [currentLang]);
+  // Plantes ayant une alerte active ou un état non sain ('malade' ou 'surveiller')
+  const activePlantAlerts = (plants || []).filter(
+    (plant) => plant.status !== 'saine' || Boolean(plant.alert)
+  );
 
-  useEffect(() => {
-    if (initialQuery && initialQuery.trim()) {
-      sendMessage(initialQuery);
-      if (onClearInitialQuery) onClearInitialQuery();
+  const speakText = useCallback((text) => {
+    if (!('speechSynthesis' in window)) {
+      setIsSpeaking(false);
+      setWaveformActive(false);
+      return;
     }
-  }, [initialQuery]);
-
-  useEffect(() => {
-    chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, waveformActive]);
-
-  const speakText = (text) => {
-    if (!('speechSynthesis' in window)) return;
     window.speechSynthesis.cancel();
 
     const utterance = new SpeechSynthesisUtterance(text);
@@ -79,69 +71,9 @@ export default function VoiceAssistantScreen({
     };
 
     window.speechSynthesis.speak(utterance);
-  };
+  }, [currentLang]);
 
-  const toggleListening = () => {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-
-    if (!SpeechRecognition) {
-      handleSendSimulatedVoice();
-      return;
-    }
-
-    if (isListening) {
-      setIsListening(false);
-      setWaveformActive(false);
-      return;
-    }
-
-    try {
-      const recognition = new SpeechRecognition();
-      recognition.lang = currentLang === 'en' ? 'en-US' : currentLang === 'wo' ? 'wo-SN' : 'fr-FR';
-      recognition.continuous = false;
-      recognition.interimResults = false;
-
-      recognition.onstart = () => {
-        setIsListening(true);
-        setWaveformActive(true);
-      };
-
-      recognition.onresult = (event) => {
-        const transcript = event.results[0][0].transcript;
-        setIsListening(false);
-        setWaveformActive(false);
-        sendMessage(transcript);
-      };
-
-      recognition.onerror = () => {
-        setIsListening(false);
-        setWaveformActive(false);
-        handleSendSimulatedVoice();
-      };
-
-      recognition.onend = () => {
-        setIsListening(false);
-      };
-
-      recognition.start();
-    } catch {
-      handleSendSimulatedVoice();
-    }
-  };
-
-  const handleSendSimulatedVoice = () => {
-    setIsListening(true);
-    setWaveformActive(true);
-
-    setTimeout(() => {
-      setIsListening(false);
-      const sampleList = SAMPLE_QUESTIONS[currentLang] || SAMPLE_QUESTIONS.fr;
-      const randomQuery = sampleList[Math.floor(Math.random() * sampleList.length)];
-      sendMessage(randomQuery);
-    }, 1200);
-  };
-
-  const sendMessage = async (textToSend) => {
+  const sendMessage = useCallback(async (textToSend) => {
     const query = textToSend || inputText;
     if (!query.trim()) return;
 
@@ -157,7 +89,7 @@ export default function VoiceAssistantScreen({
     setWaveformActive(true);
 
     try {
-      const botReply = await askOctopusAssistant(query, currentLang);
+      const botReply = await askOctopusAssistant(query, currentLang, { plants });
       setMessages(prev => [
         ...prev,
         {
@@ -172,10 +104,112 @@ export default function VoiceAssistantScreen({
     } catch {
       setWaveformActive(false);
     }
+  }, [inputText, currentLang, plants, speakText]);
+
+  const handleSendSimulatedVoice = useCallback(() => {
+    setIsListening(true);
+    setWaveformActive(true);
+
+    setTimeout(() => {
+      setIsListening(false);
+      const sampleList = SAMPLE_QUESTIONS[currentLang] || SAMPLE_QUESTIONS.fr;
+      const randomQuery = sampleList[Math.floor(Math.random() * sampleList.length)];
+      sendMessage(randomQuery);
+    }, 1200);
+  }, [currentLang, sendMessage]);
+
+  const toggleListening = () => {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+      handleSendSimulatedVoice();
+      return;
+    }
+
+    if (isListening) {
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.abort();
+        } catch {
+          // ignore
+        }
+        recognitionRef.current = null;
+      }
+      setIsListening(false);
+      setWaveformActive(false);
+      return;
+    }
+
+    try {
+      const recognition = new SpeechRecognition();
+      recognitionRef.current = recognition;
+      recognition.lang = currentLang === 'en' ? 'en-US' : currentLang === 'wo' ? 'wo-SN' : 'fr-FR';
+      recognition.continuous = false;
+      recognition.interimResults = false;
+
+      recognition.onstart = () => {
+        setIsListening(true);
+        setWaveformActive(true);
+      };
+
+      recognition.onresult = (event) => {
+        const transcript = event.results[0][0].transcript;
+        recognitionRef.current = null;
+        setIsListening(false);
+        setWaveformActive(false);
+        sendMessage(transcript);
+      };
+
+      recognition.onerror = () => {
+        recognitionRef.current = null;
+        setIsListening(false);
+        setWaveformActive(false);
+        handleSendSimulatedVoice();
+      };
+
+      recognition.onend = () => {
+        recognitionRef.current = null;
+        setIsListening(false);
+      };
+
+      recognition.start();
+    } catch {
+      recognitionRef.current = null;
+      handleSendSimulatedVoice();
+    }
   };
 
-  // Nombre d'alertes affiché dans le badge (2 = valeur historique des données statiques)
-  const alertTotal = alerts ? alerts.length : 2;
+  useEffect(() => {
+    setMessages(INITIAL_CHAT_MESSAGES[currentLang] || INITIAL_CHAT_MESSAGES.fr);
+  }, [currentLang]);
+
+  useEffect(() => {
+    if (initialQuery && initialQuery.trim()) {
+      sendMessage(initialQuery);
+      if (onClearInitialQuery) onClearInitialQuery();
+    }
+  }, [initialQuery, sendMessage, onClearInitialQuery]);
+
+  useEffect(() => {
+    chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, waveformActive]);
+
+  // Nettoyage complet à la destruction du composant (micro + voix)
+  useEffect(() => {
+    return () => {
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.abort();
+        } catch {
+          // ignore
+        }
+        recognitionRef.current = null;
+      }
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
+    };
+  }, []);
 
   return (
     <div className="web-page-container">
@@ -351,114 +385,106 @@ export default function VoiceAssistantScreen({
         </div>
 
         {/* =========================================================
-            COLONNE DROITE : TOUR DE CONTRÔLE DES ALERTES
+            COLONNE DROITE : TOUR DE CONTRÔLE DES ALERTES DYNAMIQUES
             ========================================================= */}
         <div className="web-assistant-sidebar">
           {/* Centre des alertes phytosanitaires */}
           <div className="web-card web-alerts-card">
             <div className="alerts-card-header">
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Bell size={20} color="#e11d48" />
+                <Bell size={20} color={activePlantAlerts.length > 0 ? '#e11d48' : '#10b981'} />
                 <h3 style={{ margin: 0 }}>Alertes Phytosanitaires en direct</h3>
               </div>
-              <span className="urgent-badge-pill">{alertTotal} {alertTotal > 1 ? 'alertes actives' : 'alerte active'}</span>
+              <span
+                className="urgent-badge-pill"
+                style={
+                  activePlantAlerts.length === 0
+                    ? { background: '#dcfce7', color: '#15803d' }
+                    : undefined
+                }
+              >
+                {activePlantAlerts.length} alerte{activePlantAlerts.length > 1 ? 's' : ''} active{activePlantAlerts.length > 1 ? 's' : ''}
+              </span>
             </div>
 
             <div className="alerts-list">
-              {alerts ? (
-                <>
-                  {alerts.length === 0 && (
-                    <p className="alert-item-desc">Aucune alerte active : toutes vos cultures sont saines.</p>
-                  )}
-                  {alerts.map((a) => (
-                    <div key={a.id} className={`web-alert-item ${a.level}`}>
+              {activePlantAlerts.length === 0 ? (
+                <div
+                  className="web-alert-item"
+                  style={{
+                    background: '#f0fdf4',
+                    border: '1px solid #bbf7d0',
+                    color: '#166534'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <CheckCircle2 size={18} color="#10b981" />
+                    <strong>Aucune alerte sanitaire sur vos parcelles</strong>
+                  </div>
+                  <p className="alert-item-desc" style={{ color: '#15803d' }}>
+                    Toutes les cultures enregistrées dans votre carnet sont actuellement saines.
+                  </p>
+                </div>
+              ) : (
+                activePlantAlerts.map((plant) => {
+                  const isSevere = plant.status === 'malade';
+                  return (
+                    <div
+                      key={plant.id}
+                      className={`web-alert-item ${isSevere ? 'danger' : 'warning'}`}
+                    >
                       <div className="alert-item-top">
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          {a.level === 'danger'
-                            ? <ShieldAlert size={16} color="#e11d48" />
-                            : <AlertTriangle size={16} color="#d97706" />}
-                          <strong>{a.title}</strong>
+                          {isSevere ? (
+                            <ShieldAlert size={16} color="#e11d48" />
+                          ) : (
+                            <AlertTriangle size={16} color="#d97706" />
+                          )}
+                          <strong>
+                            {plant.name} ({plant.species.split(' (')[0]}) — {plant.plot}
+                          </strong>
                         </div>
-                        <span className="alert-time">{a.date}</span>
+                        <span className="alert-time">{plant.lastObservation}</span>
                       </div>
-                      <p className="alert-item-desc">{a.description}</p>
+                      <p className="alert-item-desc">
+                        {plant.alert || plant.details?.notes || `Statut actuel : ${plant.statusLabel} (Score de santé : ${plant.healthScore}/100).`}
+                      </p>
                       <div className="alert-item-actions">
-                        <button
-                          type="button"
+                        <button 
+                          type="button" 
                           className="web-alert-btn-action primary"
-                          onClick={() => onNavigateToPlants && onNavigateToPlants({ plantId: a.plant.id })}
+                          onClick={() => onNavigateToPlants && onNavigateToPlants({ plantId: plant.id })}
                         >
                           <FolderHeart size={14} />
                           <span>Consulter le dossier de la plante</span>
                         </button>
-                        <button
-                          type="button"
+                        <button 
+                          type="button" 
                           className="web-alert-btn-action secondary"
-                          onClick={() => onNavigateToScan && onNavigateToScan({
-                            targetPlant: {
-                              id: a.plant.id,
-                              name: a.plant.name,
-                              species: (a.plant.species || '').split('(')[0].trim(),
-                              plot: (a.plant.plot || '').split(' - ')[0].trim()
-                            }
-                          })}
+                          onClick={() => onNavigateToScan && onNavigateToScan({ targetPlant: plant })}
                         >
                           <Camera size={14} />
                           <span>Faire un scan de contrôle</span>
                         </button>
                       </div>
                     </div>
-                  ))}
-                </>
-              ) : (
-                <>
-              {/* Alerte 1 : Plante 2 / Oïdium */}
-              <div className="web-alert-item danger">
-                <div className="alert-item-top">
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <ShieldAlert size={16} color="#e11d48" />
-                    <strong>Plante 2 (Aubergine) — Parcelle B1</strong>
-                  </div>
-                  <span className="alert-time">Aujourd'hui, 10:24</span>
-                </div>
-                <p className="alert-item-desc">
-                  Présence d'oïdium sur la canopée basse. Risque élevé de propagation sous l'effet de l'humidité relative (82%). Traitement fongicide recommandé sous 24h.
-                </p>
-                <div className="alert-item-actions">
-                  <button 
-                    type="button" 
-                    className="web-alert-btn-action primary"
-                    onClick={() => onNavigateToPlants && onNavigateToPlants({ plantId: 'P-002' })}
-                  >
-                    <FolderHeart size={14} />
-                    <span>Consulter le dossier de la plante</span>
-                  </button>
-                  <button 
-                    type="button" 
-                    className="web-alert-btn-action secondary"
-                    onClick={() => onNavigateToScan && onNavigateToScan({ targetPlant: { id: 'P-002', name: 'Plante 2', species: 'Aubergine', plot: 'Parcelle B1' } })}
-                  >
-                    <Camera size={14} />
-                    <span>Faire un scan de contrôle</span>
-                  </button>
-                </div>
-              </div>
+                  );
+                })
+              )}
 
-              {/* Alerte 2 : Vigilance Météo / Risque mildiou */}
+              {/* Bulletin de vigilance agro-météorologique */}
               <div className="web-alert-item warning">
                 <div className="alert-item-top">
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <AlertTriangle size={16} color="#d97706" />
-                    <strong>Vigilance Météo & Risque Mildiou</strong>
+                    <strong>Vigilance Météo & Risque Fongique</strong>
                   </div>
-                  <span className="alert-time">Hier, 17:00</span>
+                  <span className="alert-time">Bulletin préventif</span>
                 </div>
                 <p className="alert-item-desc">
-                  Conditions orageuses prévues sur le secteur. Pensez à aérer les serres et à espacer les arrosages pour éviter l'eau stagnante sur les feuilles de tomate.
+                  Hygrométrie matinale élevée prévue sur le secteur. Aérez les serres et arrosez directement au pied pour éviter l'eau stagnante sur le feuillage.
                 </p>
               </div>
-                </>
-              )}
             </div>
           </div>
 

@@ -1,24 +1,41 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import Header from './components/Header';
 import ScanScreen from './components/ScanScreen';
 import PlantRecordsScreen from './components/PlantRecordsScreen';
 import VoiceAssistantScreen from './components/VoiceAssistantScreen';
-import FooterBanner from './components/FooterBanner';
-import OctopusConfigModal from './components/OctopusConfigModal';
 import LoginScreen from './components/LoginScreen';
 import RegisterScreen from './components/RegisterScreen';
+import FooterBanner from './components/FooterBanner';
+import OctopusConfigModal from './components/OctopusConfigModal';
 import { getOctopusConfig } from './services/octopusApi';
+import { getCurrentUser, logoutUser } from './services/authService';
 import { INITIAL_PLANTS } from './data/mockData';
-import { isLiveMode, fetchPlants, createPlant, saveDiagnostic } from './services/phytoscanApi';
-import { buildAlerts } from './utils/alerts';
-import { getCurrentUser, SESSION_EVENT, checkAuthRequired, logout } from './services/authService';
+
+const PLANTS_STORAGE_KEY = 'phytoscan_plants_data';
+
+const loadPersistedPlants = () => {
+  try {
+    const saved = localStorage.getItem(PLANTS_STORAGE_KEY);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed;
+      }
+    }
+  } catch (err) {
+    console.warn('Impossible de charger les plantes depuis localStorage:', err);
+  }
+  return INITIAL_PLANTS;
+};
 
 export default function App() {
   // Navigation entre les pages du site web
-  const [activeScreen, setActiveScreen] = useState('scan'); // 'scan' | 'plants' | 'assistant' | 'login' | 'register'
-  const [navigationHistory, setNavigationHistory] = useState(['scan']);
+  const [currentUser, setCurrentUser] = useState(getCurrentUser);
+  const initialScreen = currentUser ? 'scan' : 'register';
+  const [activeScreen, setActiveScreen] = useState(initialScreen); // 'scan' | 'plants' | 'assistant' | 'login' | 'register'
+  const [navigationHistory, setNavigationHistory] = useState([initialScreen]);
   const [navigationParams, setNavigationParams] = useState({});
-  const [plantsList, setPlantsList] = useState(INITIAL_PLANTS);
+  const [plantsList, setPlantsList] = useState(loadPersistedPlants);
   const [isOctopusModalOpen, setIsOctopusModalOpen] = useState(false);
   const [octopusConfig, setOctopusConfig] = useState(getOctopusConfig());
 
@@ -46,36 +63,29 @@ export default function App() {
 
   // Sauvegarde automatique dans localStorage à chaque mise à jour des cultures
   useEffect(() => {
-    let cancelled = false;
-    if (!isLiveMode()) {
-      setPlantsList(INITIAL_PLANTS);
-      setApiError(null);
-      return undefined;
+    try {
+      localStorage.setItem(PLANTS_STORAGE_KEY, JSON.stringify(plantsList));
+    } catch (err) {
+      console.error('Erreur lors de la sauvegarde des cultures dans localStorage:', err);
     }
-    fetchPlants()
-      .then((list) => { if (!cancelled) { setPlantsList(list); setApiError(null); } })
-      .catch((err) => {
-        if (!cancelled) {
-          console.warn('Chargement des plantes impossible :', err.message);
-          setPlantsList(INITIAL_PLANTS);
-          setApiError(err.message);
-        }
-      });
-    return () => { cancelled = true; };
-  }, [octopusConfig, currentUser]);
+  }, [plantsList]);
 
-  const alerts = useMemo(() => buildAlerts(plantsList), [plantsList]);
+  // Calcul dynamique du nombre d'alertes phytosanitaires actives
+  const activeAlertCount = plantsList.filter(
+    (plant) => plant.status !== 'saine' || Boolean(plant.alert)
+  ).length;
 
-  // ---------------------------------------------------------------- Navigation
+  // Fonction de navigation entre les pages
   const navigateTo = (screen, params = {}) => {
     if (!currentUser && !['login', 'register'].includes(screen)) return;
 
     setNavigationParams(params);
-    setNavigationHistory((prev) => [...prev, screen]);
+    setNavigationHistory(prev => [...prev, screen]);
     setActiveScreen(screen);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  // Bouton retour dans l'historique
   const goBack = () => {
     if (navigationHistory.length > 1) {
       const newHistory = [...navigationHistory];
@@ -87,140 +97,130 @@ export default function App() {
     }
   };
 
-  const openLogin = () => { setAuthView('login'); setShowAuth(true); };
-  const openRegister = () => { setAuthView('register'); setShowAuth(true); };
+  // Enregistrement d'un résultat de diagnostic dans la plante ciblée
+  const handleSaveDiagnosticToPlant = ({
+    plantId,
+    status,
+    diseaseName,
+    confidence,
+    remedies,
+    date
+  }) => {
+    const obsDate = date || new Date().toLocaleDateString('fr-FR');
+    const isHealthy =
+      status === 'saine' ||
+      diseaseName.toLowerCase().includes('sain') ||
+      diseaseName.toLowerCase().includes('aucune anomalie');
+    const isWatch = status === 'surveiller';
 
-  const handleAuthSuccess = (user) => {
-    setCurrentUser(user);
-    setShowAuth(false);
-  };
+    const resolvedStatus = isHealthy ? 'saine' : isWatch ? 'surveiller' : 'malade';
+    const resolvedLabel = isHealthy ? 'Saine' : isWatch ? 'À surveiller' : 'Malade';
+    const resolvedScore = isHealthy ? 98 : isWatch ? 72 : 42;
+    const resolvedAlert = isHealthy
+      ? null
+      : isWatch
+        ? `Suspicion détectée : ${diseaseName} (${confidence}). Surveillance et traitement préventif conseillés.`
+        : `Diagnostic IA : ${diseaseName} (${confidence}). Traitement d'urgence requis.`;
 
-  // ---------------------------------------------------------------- Données
-  const saveDiagnosticLocally = ({ plantId, diseaseName, confidence, date }) => {
-    setPlantsList((prevPlants) =>
-      prevPlants.map((plant) => {
+    setPlantsList(prevPlants => {
+      return prevPlants.map(plant => {
         if (plant.id === plantId) {
           const newHistoryItem = {
-            date: date || new Date().toLocaleDateString('fr-FR'),
+            date: obsDate,
             type: 'Diagnostic IA',
             result: `${diseaseName} (${confidence})`,
-            notes: 'Diagnostic automatique enregistré via la vision par ordinateur.'
+            notes: remedies && remedies.length > 0
+              ? `Recommandation clé : ${remedies[0]}`
+              : 'Diagnostic automatique enregistré via la vision par ordinateur.'
           };
-          const isHealthy = diseaseName.toLowerCase().includes('sain');
+
+          const updatedCare =
+            !isHealthy && remedies && remedies.length > 0
+              ? [
+                  {
+                    task: remedies[0],
+                    frequency: 'Immédiat (Suite au scan IA)',
+                    status: isWatch ? 'Préventif' : 'Urgent (24h)'
+                  },
+                  ...(plant.care || [])
+                ]
+              : plant.care || [];
+
           return {
             ...plant,
-            status: isHealthy ? 'saine' : 'malade',
-            statusLabel: isHealthy ? 'Saine' : 'Maladie détectée',
-            healthScore: isHealthy ? 98 : 45,
-            lastObservation: date || new Date().toLocaleDateString('fr-FR'),
-            history: [newHistoryItem, ...(plant.history || [])]
+            status: resolvedStatus,
+            statusLabel: resolvedLabel,
+            healthScore: resolvedScore,
+            alert: resolvedAlert,
+            lastObservation: obsDate,
+            history: [newHistoryItem, ...(plant.history || [])],
+            care: updatedCare
           };
         }
         return plant;
-      })
-    );
+      });
+    });
   };
 
-  const handleSaveDiagnosticToPlant = async (payload) => {
-    if (isLiveMode()) {
-      try {
-        const updated = await saveDiagnostic(payload.plantId, {
-          diseaseName: payload.diseaseName,
-          confidence: payload.confidence,
-          date: payload.date
-        });
-        setPlantsList((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
-        return;
-      } catch (err) {
-        console.warn('Enregistrement du diagnostic impossible côté serveur :', err.message);
-        setApiError(err.message);
-      }
-    }
-    saveDiagnosticLocally(payload);
-  };
-
-  const handleCreatePlant = async (data) => {
-    const created = await createPlant(data);
-    setPlantsList((prev) => [created, ...prev]);
-    return created;
-  };
-
-  // ---------------------------------------------------------------- Rendu de la page active
+  // Rendu de la page active du site
   const renderCurrentScreen = () => {
     switch (activeScreen) {
       case 'scan':
         return (
-          <ScanScreen
+          <ScanScreen 
+            plants={plantsList}
             onNavigateToPlants={(params) => navigateTo('plants', params)}
             onNavigateToAssistant={(params) => navigateTo('assistant', params)}
             targetPlant={navigationParams?.targetPlant}
-            onClearTargetPlant={() => setNavigationParams((prev) => ({ ...prev, targetPlant: null }))}
+            onClearTargetPlant={() => setNavigationParams(prev => ({ ...prev, targetPlant: null }))}
             onSaveDiagnosticToPlant={handleSaveDiagnosticToPlant}
           />
         );
+
       case 'plants':
         return (
-          <PlantRecordsScreen
+          <PlantRecordsScreen 
             plants={plantsList}
             onUpdatePlants={(updated) => setPlantsList(updated)}
-            onCreatePlant={isLiveMode() ? handleCreatePlant : undefined}
             initialPlantId={navigationParams?.plantId || 'P-001'}
             onNavigateToScan={(params) => navigateTo('scan', params)}
             onNavigateToAssistant={(params) => navigateTo('assistant', params)}
           />
         );
+
       case 'assistant':
         return (
-          <VoiceAssistantScreen
+          <VoiceAssistantScreen 
+            plants={plantsList}
             initialQuery={navigationParams?.initialQuery || ''}
-            alerts={alerts}
-            onClearInitialQuery={() => setNavigationParams((prev) => ({ ...prev, initialQuery: '' }))}
+            onClearInitialQuery={() => setNavigationParams(prev => ({ ...prev, initialQuery: '' }))}
             onNavigateToScan={(params) => navigateTo('scan', params)}
             onNavigateToPlants={(params) => navigateTo('plants', params)}
             onOpenOctopusConfig={() => setIsOctopusModalOpen(true)}
           />
         );
+
+      case 'login':
+        return (
+          <LoginScreen 
+            onNavigateToRegister={() => navigateTo('register')}
+            onLoginSuccess={handleLoginSuccess}
+          />
+        );
+
+      case 'register':
+        return (
+          <RegisterScreen 
+            onNavigateToLogin={() => navigateTo('login')}
+            onRegisterSuccess={handleRegisterSuccess}
+          />
+        );
+
       default:
         return null;
     }
   };
 
-  // ---------------------------------------------------------------- Écrans de connexion / inscription
-  if (authRequired === null) {
-    return <div style={{ padding: 40, textAlign: 'center' }}>Chargement…</div>;
-  }
-
-  // Obligatoire (AUTH_REQUIRED=true) ou demandée par l'utilisateur (option B)
-  if ((authRequired || showAuth) && !currentUser) {
-    return (
-      <>
-        {!authRequired && (
-          <div style={{ padding: '12px 20px' }}>
-            <button
-              type="button"
-              onClick={() => setShowAuth(false)}
-              style={{ cursor: 'pointer', border: 'none', background: 'none', color: '#059669', fontWeight: 600 }}
-            >
-              ← Continuer sans compte
-            </button>
-          </div>
-        )}
-        {authView === 'login' ? (
-          <LoginScreen
-            onNavigateToRegister={() => setAuthView('register')}
-            onLoginSuccess={handleAuthSuccess}
-          />
-        ) : (
-          <RegisterScreen
-            onNavigateToLogin={() => setAuthView('login')}
-            onRegisterSuccess={handleAuthSuccess}
-          />
-        )}
-      </>
-    );
-  }
-
-  // ---------------------------------------------------------------- Application
   return (
     <div className="website-root">
       {currentUser && (
@@ -237,23 +237,15 @@ export default function App() {
         />
       )}
 
+      {/* Contenu principal de la page web */}
       <main className="website-main-content">
-        {apiError && (
-          <div
-            style={{
-              margin: '12px auto', maxWidth: '1100px', padding: '10px 14px', borderRadius: '8px',
-              background: '#fef3c7', color: '#92400e', border: '1px solid #fde68a', fontSize: '0.85rem'
-            }}
-          >
-            Serveur PhytoScan injoignable ou erreur ({apiError}). Les données affichées peuvent être locales (démonstration).
-          </div>
-        )}
         {renderCurrentScreen()}
       </main>
 
       {currentUser && <FooterBanner onNavigate={(screen) => navigateTo(screen)} />}
 
-      <OctopusConfigModal
+      {/* Modal de Configuration Octopus */}
+      <OctopusConfigModal 
         isOpen={isOctopusModalOpen}
         onClose={() => setIsOctopusModalOpen(false)}
         onConfigSaved={(newCfg) => setOctopusConfig(newCfg)}

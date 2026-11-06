@@ -2,7 +2,6 @@
    PhytoScan AI - Design System & Modern Aesthetics
    ========================================================================== */
 
-
 :root {
   --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-heading: 'Outfit', var(--font-sans);
@@ -51,80 +50,6 @@
   --radius-phone: 42px;
 
   --transition-smooth: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-/* ---------- Header compact : tout reste visible ---------- */
-.web-navbar-container {
-  flex-wrap: wrap;
-  row-gap: 8px;
-}
-
-.web-navbar-actions {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-left: auto;
-  min-width: 0;
-}
-
-.web-user-profile-badge {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.hdr-auth-buttons {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.hdr-btn-logout,
-.hdr-btn-login,
-.hdr-btn-register {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 7px 12px;
-  border-radius: 8px;
-  font-size: 0.85rem;
-  font-weight: 600;
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-.hdr-btn-logout {
-  border: 1px solid #fecaca;
-  background: #fef2f2;
-  color: #b91c1c;
-}
-.hdr-btn-logout:hover { background: #fee2e2; }
-
-.hdr-btn-login {
-  border: 1px solid #10b981;
-  background: transparent;
-  color: #059669;
-}
-.hdr-btn-login:hover { background: #ecfdf5; }
-
-.hdr-btn-register {
-  border: 1px solid #10b981;
-  background: #10b981;
-  color: #fff;
-}
-.hdr-btn-register:hover { background: #059669; }
-
-/* Écrans moyens : on retire le sous-titre et le rôle */
-@media (max-width: 1500px) {
-  .web-brand-subtitle,
-  .web-user-role { display: none; }
-}
-
-/* Écrans plus étroits : boutons réduits à l'icône */
-@media (max-width: 1250px) {
-  .hdr-label,
-  .web-user-info-text { display: none; }
 }
 
 *, *::before, *::after {
