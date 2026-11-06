@@ -30,28 +30,35 @@ const loadPersistedPlants = () => {
 
 export default function App() {
   // Navigation entre les pages du site web
-  const [activeScreen, setActiveScreen] = useState('scan'); // 'scan' | 'plants' | 'assistant' | 'login' | 'register'
-  const [navigationHistory, setNavigationHistory] = useState(['scan']);
+  const [currentUser, setCurrentUser] = useState(getCurrentUser);
+  const initialScreen = currentUser ? 'scan' : 'register';
+  const [activeScreen, setActiveScreen] = useState(initialScreen); // 'scan' | 'plants' | 'assistant' | 'login' | 'register'
+  const [navigationHistory, setNavigationHistory] = useState([initialScreen]);
   const [navigationParams, setNavigationParams] = useState({});
   const [plantsList, setPlantsList] = useState(loadPersistedPlants);
   const [isOctopusModalOpen, setIsOctopusModalOpen] = useState(false);
   const [octopusConfig, setOctopusConfig] = useState(getOctopusConfig());
-  const [currentUser, setCurrentUser] = useState(getCurrentUser);
 
   const handleLoginSuccess = (user) => {
     setCurrentUser(user);
-    navigateTo('scan');
+    setNavigationParams({});
+    setNavigationHistory(['scan']);
+    setActiveScreen('scan');
   };
 
   const handleRegisterSuccess = (user) => {
     setCurrentUser(user);
-    navigateTo('scan');
+    setNavigationParams({});
+    setNavigationHistory(['scan']);
+    setActiveScreen('scan');
   };
 
   const handleLogout = () => {
     logoutUser();
     setCurrentUser(null);
-    navigateTo('scan');
+    setNavigationParams({});
+    setNavigationHistory(['register']);
+    setActiveScreen('register');
   };
 
   // Sauvegarde automatique dans localStorage à chaque mise à jour des cultures
@@ -70,6 +77,8 @@ export default function App() {
 
   // Fonction de navigation entre les pages
   const navigateTo = (screen, params = {}) => {
+    if (!currentUser && !['login', 'register'].includes(screen)) return;
+
     setNavigationParams(params);
     setNavigationHistory(prev => [...prev, screen]);
     setActiveScreen(screen);
@@ -214,26 +223,26 @@ export default function App() {
 
   return (
     <div className="website-root">
-      {/* Barre de navigation principale du site */}
-      <Header 
-        activeScreen={activeScreen}
-        onNavigate={(screen) => navigateTo(screen)}
-        canGoBack={navigationHistory.length > 1}
-        onGoBack={goBack}
-        onOpenOctopusConfig={() => setIsOctopusModalOpen(true)}
-        isOctopusConnected={!octopusConfig.useMock && !!octopusConfig.baseUrl}
-        alertCount={activeAlertCount}
-        currentUser={currentUser}
-        onLogout={handleLogout}
-      />
+      {currentUser && (
+        <Header 
+          activeScreen={activeScreen}
+          onNavigate={(screen) => navigateTo(screen)}
+          canGoBack={navigationHistory.length > 1}
+          onGoBack={goBack}
+          onOpenOctopusConfig={() => setIsOctopusModalOpen(true)}
+          isOctopusConnected={!octopusConfig.useMock && !!octopusConfig.baseUrl}
+          alertCount={activeAlertCount}
+          currentUser={currentUser}
+          onLogout={handleLogout}
+        />
+      )}
 
       {/* Contenu principal de la page web */}
       <main className="website-main-content">
         {renderCurrentScreen()}
       </main>
 
-      {/* Pied de page du site web */}
-      <FooterBanner onNavigate={(screen) => navigateTo(screen)} />
+      {currentUser && <FooterBanner onNavigate={(screen) => navigateTo(screen)} />}
 
       {/* Modal de Configuration Octopus */}
       <OctopusConfigModal 
