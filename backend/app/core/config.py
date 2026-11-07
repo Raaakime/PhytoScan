@@ -40,8 +40,11 @@ class Settings(BaseSettings):
     # True  = un jeton valide est obligatoire partout où l'on utilise get_current_user.
     AUTH_REQUIRED: bool = False
 
-    # --- CORS : origines autorisées à appeler l'API (le front Vite tourne sur 5173) ---
-    CORS_ORIGINS: List[str] = ["http://localhost:5173", "http://127.0.0.1:5173"]
+    # --- CORS : origines autorisées à appeler l'API (Vite peut basculer de 5173 à 5174) ---
+    CORS_ORIGINS: List[str] = [
+        "http://localhost:5173", "http://127.0.0.1:5173",
+        "http://localhost:5174", "http://127.0.0.1:5174",
+    ]
 
     # --- Fichiers uploadés ---
     UPLOAD_DIR: Path = BASE_DIR / "uploads"
