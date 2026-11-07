@@ -54,7 +54,12 @@ const request = async (path, options, retry = true, baseUrl = getConfiguredApiBa
   const token = getAccessToken();
   if (token) headers.set('Authorization', `Bearer ${token}`);
 
-  const response = await fetch(`${baseUrl.replace(/\/+$/, '')}${path}`, { ...options, headers });
+  let response;
+  try {
+    response = await fetch(`${baseUrl.replace(/\/+$/, '')}${path}`, { ...options, headers });
+  } catch {
+    throw new Error(`Impossible de joindre l'API à ${baseUrl}. Vérifiez que le backend FastAPI est démarré et que CORS autorise le frontend.`);
+  }
   if (response.status === 401 && retry && path !== '/auth/refresh' && await refreshAccessToken(baseUrl)) {
     return request(path, options, false, baseUrl);
   }
