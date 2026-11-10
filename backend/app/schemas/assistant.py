@@ -20,6 +20,24 @@ class AskResponse(CamelModel):
     session_id: str
 
 
+class VoiceChatResponse(CamelModel):
+    transcript: str
+    text: str
+    timestamp: str
+    session_id: str
+    audio_base64: Optional[str] = None
+    audio_mime_type: Optional[str] = None
+    audio_error: Optional[str] = None
+
+
+class VoiceStatusResponse(CamelModel):
+    enabled: bool
+    stt_ready: bool
+    tts_ready: bool
+    supported_languages: List[str]
+    message: Optional[str] = None
+
+
 class ChatMessageOut(CamelModel):
     id: int
     sender: str                                 # "user" | "bot" (comme dans INITIAL_CHAT_MESSAGES)

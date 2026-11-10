@@ -20,6 +20,7 @@ bcrypt>=4.1
 
 # --- Images & IA ---
 Pillow>=10.3
+av>=14.0                  # validation de durée et de conteneur des fichiers audio
 
 # --- Tests ---
 pytest>=8.0
