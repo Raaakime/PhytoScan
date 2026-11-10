@@ -57,6 +57,19 @@ class Settings(BaseSettings):
     ML_LABELS_PATH: Path = BASE_DIR / "app" / "ml" / "labels.json"
     ASSISTANT_BACKEND: str = "mock"   # "mock" = réponses à base de règles ; extensible vers un LLM
 
+    # --- Assistant vocal (désactivé tant que les clés fournisseurs ne sont pas configurées) ---
+    VOICE_ENABLED: bool = False
+    VOICE_MAX_AUDIO_MB: int = 8
+    VOICE_MAX_AUDIO_SECONDS: int = 60
+    VOICE_PROVIDER_TIMEOUT_SECONDS: int = 45
+    VOICE_STT_PROVIDER: str = "openai"
+    VOICE_TTS_PROVIDER: str = "elevenlabs"
+    OPENAI_API_KEY: str = ""
+    OPENAI_STT_MODEL: str = "gpt-transcribe"
+    ELEVENLABS_API_KEY: str = ""
+    ELEVENLABS_VOICE_ID: str = ""
+    ELEVENLABS_TTS_MODEL: str = "eleven_v4_turbo"
+
     # --- Images de comparaison (servies par le front dans /public/assets) ---
     COMPARISON_HEALTHY_IMG: str = "/assets/comparaison_saine.jpg"
     COMPARISON_INFECTED_IMG: str = "/assets/comparaison_malade.jpg"

@@ -4434,5 +4434,103 @@ img, video, canvas {
   }
 }
 
+.voice-assistant-control {
+  display: grid;
+  gap: 12px;
+  padding: 14px 18px;
+  border-top: 1px solid #e8eee8;
+}
 
+.voice-assistant-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
 
+.voice-assistant-actions audio {
+  width: min(100%, 360px);
+}
+
+.voice-assistant-control .web-btn-mic-toggle:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+  box-shadow: none;
+}
+
+.voice-assistant-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 38px;
+  padding: 8px 12px;
+  border: 1px solid #d6e2d6;
+  border-radius: 10px;
+  background: #fff;
+  color: #285d3c;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.88rem;
+}
+
+.voice-assistant-secondary:hover {
+  background: #f0f8f1;
+}
+
+.voice-assistant-secondary:focus-visible,
+.voice-assistant-control button:focus-visible {
+  outline: 3px solid #84cc98;
+  outline-offset: 2px;
+}
+
+.voice-assistant-notice,
+.voice-assistant-privacy,
+.voice-assistant-error,
+.voice-assistant-transcript,
+.voice-assistant-answer {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  overflow-wrap: anywhere;
+  font-size: 0.9rem;
+}
+
+.voice-assistant-notice {
+  background: #fff8e6;
+  color: #7a5411;
+}
+
+.voice-assistant-privacy {
+  color: #5e6a60;
+  font-size: 0.8rem;
+}
+
+.voice-assistant-error {
+  background: #fff1f0;
+  color: #a12622;
+}
+
+.voice-assistant-transcript {
+  background: #f4f7f4;
+  color: #38443a;
+}
+
+.voice-assistant-answer {
+  background: #eff8f0;
+  color: #245c35;
+}
+
+@media (max-width: 540px) {
+  .voice-assistant-control {
+    padding: 12px;
+  }
+
+  .voice-assistant-actions {
+    align-items: stretch;
+  }
+
+  .voice-assistant-actions audio {
+    width: 100%;
+  }
+}

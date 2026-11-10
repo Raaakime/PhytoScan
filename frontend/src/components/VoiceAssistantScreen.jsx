@@ -1,7 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { 
-  Mic, 
-  MicOff, 
   Send, 
   Volume2, 
   Bell, 
@@ -14,6 +12,7 @@ import {
   Cpu,
   CheckCircle2
 } from 'lucide-react';
+import VoiceAssistant from './VoiceAssistant';
 import { 
   ASSISTANT_LANGUAGES, 
   INITIAL_CHAT_MESSAGES, 
@@ -33,12 +32,10 @@ export default function VoiceAssistantScreen({
   const [currentLang, setCurrentLang] = useState('fr'); // 'fr' | 'wo' | 'en'
   const [messages, setMessages] = useState(INITIAL_CHAT_MESSAGES.fr);
   const [inputText, setInputText] = useState('');
-  const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [waveformActive, setWaveformActive] = useState(false);
 
   const chatBottomRef = useRef(null);
-  const recognitionRef = useRef(null);
 
   // Plantes ayant une alerte active ou un état non sain ('malade' ou 'surveiller')
   const activePlantAlerts = (plants || []).filter(
@@ -116,79 +113,6 @@ export default function VoiceAssistantScreen({
     }
   }, [inputText, currentLang, plants, speakText]);
 
-  const handleSendSimulatedVoice = useCallback(() => {
-    setIsListening(true);
-    setWaveformActive(true);
-
-    setTimeout(() => {
-      setIsListening(false);
-      const sampleList = SAMPLE_QUESTIONS[currentLang] || SAMPLE_QUESTIONS.fr;
-      const randomQuery = sampleList[Math.floor(Math.random() * sampleList.length)];
-      sendMessage(randomQuery);
-    }, 1200);
-  }, [currentLang, sendMessage]);
-
-  const toggleListening = () => {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-
-    if (!SpeechRecognition) {
-      handleSendSimulatedVoice();
-      return;
-    }
-
-    if (isListening) {
-      if (recognitionRef.current) {
-        try {
-          recognitionRef.current.abort();
-        } catch {
-          // ignore
-        }
-        recognitionRef.current = null;
-      }
-      setIsListening(false);
-      setWaveformActive(false);
-      return;
-    }
-
-    try {
-      const recognition = new SpeechRecognition();
-      recognitionRef.current = recognition;
-      recognition.lang = currentLang === 'en' ? 'en-US' : currentLang === 'wo' ? 'wo-SN' : 'fr-FR';
-      recognition.continuous = false;
-      recognition.interimResults = false;
-
-      recognition.onstart = () => {
-        setIsListening(true);
-        setWaveformActive(true);
-      };
-
-      recognition.onresult = (event) => {
-        const transcript = event.results[0][0].transcript;
-        recognitionRef.current = null;
-        setIsListening(false);
-        setWaveformActive(false);
-        sendMessage(transcript);
-      };
-
-      recognition.onerror = () => {
-        recognitionRef.current = null;
-        setIsListening(false);
-        setWaveformActive(false);
-        handleSendSimulatedVoice();
-      };
-
-      recognition.onend = () => {
-        recognitionRef.current = null;
-        setIsListening(false);
-      };
-
-      recognition.start();
-    } catch {
-      recognitionRef.current = null;
-      handleSendSimulatedVoice();
-    }
-  };
-
   useEffect(() => {
     setMessages(INITIAL_CHAT_MESSAGES[currentLang] || INITIAL_CHAT_MESSAGES.fr);
   }, [currentLang]);
@@ -204,17 +128,9 @@ export default function VoiceAssistantScreen({
     chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, waveformActive]);
 
-  // Nettoyage complet à la destruction du composant (micro + voix)
+  // Nettoyage de la synthèse vocale du navigateur.
   useEffect(() => {
     return () => {
-      if (recognitionRef.current) {
-        try {
-          recognitionRef.current.abort();
-        } catch {
-          // ignore
-        }
-        recognitionRef.current = null;
-      }
       if ('speechSynthesis' in window) {
         window.speechSynthesis.cancel();
       }
@@ -235,7 +151,7 @@ export default function VoiceAssistantScreen({
             Assistant Agronome Intelligent & Tour de Contrôle
           </h1>
           <p className="web-page-subtitle">
-            Échangez par la voix ou par écrit avec l'IA experte en pathologie végétale. Disponible en Français, Wolof et Anglais avec synthèse vocale.
+            Échangez par la voix ou par écrit sur vos cultures. Le mode vocal est disponible en français et en anglais ; le wolof reste accessible par écrit.
           </p>
         </div>
 
@@ -271,13 +187,13 @@ export default function VoiceAssistantScreen({
               </div>
               <div>
                 <h3 className="chat-bot-name">PhytoScan Agronome IA</h3>
-                <span className="chat-bot-status">● Modèle connecté (Octopus Knowledge Base)</span>
+                <span className="chat-bot-status">● Assistant agronomique à réponses guidées</span>
               </div>
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <span className="audio-voice-badge">
-                <Volume2 size={14} /> Voix active
+                <Volume2 size={14} /> Voix Push-to-Talk
               </span>
             </div>
           </div>
@@ -319,10 +235,26 @@ export default function VoiceAssistantScreen({
             <div ref={chatBottomRef} />
           </div>
 
-          {/* Visualisation Waveform Audio */}
-          <div className={`web-waveform-box ${waveformActive || isListening || isSpeaking ? 'active' : ''}`}>
+          <VoiceAssistant
+            language={currentLang}
+            onVoiceResult={(result) => {
+              const timestamp = result.timestamp || new Date().toLocaleTimeString([], {
+                hour: '2-digit',
+                minute: '2-digit'
+              });
+              setMessages(previous => [
+                ...previous,
+                { id: `u-${Date.now()}`, sender: 'user', text: result.transcript, timestamp },
+                { id: `b-${Date.now() + 1}`, sender: 'bot', text: result.text, timestamp, hasAudio: false }
+              ]);
+            }}
+            onNewConversation={() => setMessages(INITIAL_CHAT_MESSAGES[currentLang] || INITIAL_CHAT_MESSAGES.fr)}
+          />
+
+          {/* Visualisation de la synthèse vocale du navigateur pour les réponses écrites */}
+          <div className={`web-waveform-box ${waveformActive || isSpeaking ? 'active' : ''}`}>
             <span className="waveform-info-txt">
-              {isListening ? "Écoute de votre voix en cours..." : isSpeaking ? "Lecture de la réponse en cours..." : "Microphone prêt"}
+              {isSpeaking ? "Lecture de la réponse en cours..." : "Synthèse vocale du navigateur"}
             </span>
             <div className="web-waveform-bars">
               <div className="web-wave-bar" />
@@ -340,15 +272,6 @@ export default function VoiceAssistantScreen({
           {/* Barre d'interaction micro + texte */}
           <div className="web-chat-input-section">
             <div className="web-input-bar">
-              <button 
-                type="button" 
-                className={`web-btn-mic-toggle ${isListening ? 'listening' : ''}`}
-                onClick={toggleListening}
-                title={isListening ? "Arrêter l'écoute" : "Poser une question vocale"}
-              >
-                {isListening ? <MicOff size={22} /> : <Mic size={22} />}
-              </button>
-
               <form 
                 onSubmit={(e) => {
                   e.preventDefault();
