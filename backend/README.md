@@ -90,25 +90,37 @@ Le service Push-to-Talk reste désactivé si `VOICE_ENABLED=false` ou si une cl�
 
 ### Synthèse vocale wolof (prototype)
 
-Les réponses écrites en wolof peuvent être lues à la demande avec le modèle communautaire [Wolof Pocket TTS](https://huggingface.co/abdazizsall/wolof-pocket-tts). Cette synthèse locale ne transcrit pas la parole : le Push-to-Talk en wolof reste désactivé. Le dépôt Hugging Face est soumis à acceptation préalable de ses conditions ; sa licence affichée est CC-BY-SA-4.0. Vérifier les obligations d'attribution et de partage à l'identique avec votre conseil avant toute redistribution ou usage commercial. La voix de référence doit être un enregistrement local d'un locuteur ayant donné son consentement éclairé.
+Les réponses écrites en wolof peuvent être lues à la demande avec le modèle communautaire [Wolof Pocket TTS](https://huggingface.co/abdazizsall/wolof-pocket-tts). Ce parcours est distinct du Push-to-Talk : il convertit du texte en audio, mais ne transcrit pas la parole et n'active pas la reconnaissance vocale wolof. L'endpoint authentifié `POST /phytoscan/v1/assistant/speech` renvoie un WAV non mis en cache.
 
-1. Accepter les conditions d'accès du modèle sur Hugging Face et installer le paquet optionnel depuis `backend` :
+Suivre ces étapes dans l'ordre. Ne pas demander au locuteur de fournir un enregistrement avant d'avoir expliqué l'usage prévu et obtenu son consentement éclairé.
 
-```powershell
-pip install -r requirements-voice-wolof.txt
-```
+1. **Obtenir l'accès au modèle.** Se connecter à Hugging Face, ouvrir la fiche du modèle et accepter ses conditions d'accès. Vérifier que le compte a effectivement accès aux fichiers du modèle. La licence affichée est `CC-BY-SA-4.0` : examiner les obligations d'attribution et de partage à l'identique avant toute redistribution ou usage commercial.
+2. **Créer le prompt vocal consenti.** Enregistrer un échantillon propre de 3 à 10 secondes au format WAV et obtenir l'accord explicite du locuteur pour son utilisation comme référence de synthèse. Conserver le fichier localement dans un emplacement stable, hors du dépôt Git. Ne pas utiliser une voix de tiers sans autorisation.
+3. **Installer la dépendance optionnelle.** Depuis PowerShell, à la racine du dépôt :
 
-2. Créer un jeton Hugging Face autorisé et enregistrer un court prompt de voix (WAV, 3 à 10 secondes) avec le consentement du locuteur. Le jeton est un secret : ne pas le committer.
-3. Configurer le `.env` du backend puis redémarrer l'API :
+   ```powershell
+   Set-Location .\backend
+   .\.venv\Scripts\Activate.ps1
+   python -m pip install -r requirements-voice-wolof.txt
+   python -c "from pocket_tts import TTSModel; print('Pocket TTS import OK')"
+   ```
 
-```env
-WOLOF_TTS_ENABLED=true
-HF_TOKEN=your_huggingface_token
-WOLOF_TTS_MODEL_CONFIG=hf://abdazizsall/wolof-pocket-tts/config.yaml
-WOLOF_TTS_VOICE_PROMPT=C:\chemin\absolu\vers\voix-consentie.wav
-```
+   Si l'environnement virtuel n'existe pas encore, le créer et installer d'abord les dépendances normales comme indiqué dans « Démarrage rapide (Windows) ». Cette dépendance n'est pas nécessaire pour lancer les tests simulés ou utiliser le reste de l'application.
+4. **Créer/configurer le secret et les paramètres.** Créer un jeton Hugging Face autorisé à lire le modèle. Dans `backend/.env`, renseigner les valeurs ci-dessous. Remplacer les exemples ; ne jamais publier ni committer le jeton. Utiliser un chemin absolu vers le WAV ; les `/` sont acceptés dans un chemin Windows et évitent les problèmes d'échappement :
 
-Le premier clic sur « Lire la réponse » télécharge les poids du modèle depuis Hugging Face et les garde en mémoire ; prévoir plusieurs centaines de Mo et assez de RAM. L'API authentifiée `POST /assistant/speech` renvoie un WAV non mis en cache. Les tests simulent le modèle ; la qualité wolof, la prononciation des nombres et les recommandations doivent être vérifiées avec des locuteurs wolophones avant de présenter cette fonction comme production-ready. Ne pas activer sans acceptation des conditions, vérification de licence, prompt vocal autorisé et validation humaine.
+   ```env
+   WOLOF_TTS_ENABLED=true
+   HF_TOKEN=coller_le_jeton_localement
+   WOLOF_TTS_MODEL_CONFIG=hf://abdazizsall/wolof-pocket-tts/config.yaml
+   WOLOF_TTS_VOICE_PROMPT=C:/chemin/absolu/vers/voix-consentie.wav
+   ```
+
+   Vérifier que le `.env` est bien dans `backend`, que le fichier indiqué existe et que `.env` n'est pas suivi par Git. Ne pas mettre le jeton dans le code, une commande partagée, une capture d'écran ou le dépôt.
+5. **Redémarrer le backend.** Depuis `backend`, lancer `uvicorn app.main:app --reload --port 8000`. Les réglages sont chargés au démarrage : modifier `.env` sans redémarrer ne suffit pas.
+6. **Tester le parcours de bout en bout.** Démarrer le frontend (`npm run dev` dans `frontend`), se connecter à un compte, ouvrir l'assistant, choisir le wolof, envoyer une question puis cliquer sur « Lire la réponse ». Le navigateur doit recevoir puis jouer un WAV. La connexion est obligatoire pour cette route, même si `AUTH_REQUIRED=false`.
+7. **Valider le résultat avec un locuteur wolophone.** Écouter plusieurs réponses représentatives ; faire vérifier la prononciation, notamment les nombres et noms de maladies, ainsi que l'intelligibilité et la voix générée. Un locuteur wolophone et un agronome doivent aussi valider les traductions et recommandations avant tout usage de production.
+
+Au premier clic, le serveur télécharge la configuration et les poids depuis Hugging Face ; il faut une connexion Internet, un accès valide et suffisamment de RAM. Le modèle est ensuite gardé en mémoire jusqu'à l'arrêt du processus. En cas d'erreur, vérifier dans les journaux du backend l'accès Hugging Face/acceptation des conditions, le jeton, l'import du paquet, le chemin du WAV et son consentement. Les tests automatisés actuels simulent le modèle : ils ne prouvent ni le téléchargement réel, ni la génération, ni la qualité audio. Ne déclarer le parcours prêt qu'après un test réel réussi et une validation humaine.
 
 Le compte peut choisir le wolof comme langue préférée ; ce choix préremplit la langue de l'assistant et les libellés de statut des plantes. Les traductions wolof de l'interface, de l'assistant et des fiches de maladies sont des ébauches techniques, non certifiées : un locuteur wolof et un agronome doivent les relire avant la production, surtout les recommandations phytosanitaires. Le seeding ajoute les traductions manquantes et complète les champs wolof vides des bases déjà initialisées sans écraser les champs non vides. Après les migrations, mettre à jour une base existante avec `python -m app.db.seed --no-demo`.
 
