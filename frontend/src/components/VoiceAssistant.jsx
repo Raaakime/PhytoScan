@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Mic, MicOff, RotateCcw, Square, Volume2 } from 'lucide-react';
 import { getVoiceStatus, sendVoiceMessage } from '../services/voiceApi';
+import { ASSISTANT_COPY } from '../data/assistantCopy';
 
 const MAX_RECORDING_MS = 60_000;
 
@@ -206,20 +207,55 @@ export default function VoiceAssistant({ language, onVoiceResult, onNewConversat
     onNewConversation?.();
   };
 
+  useEffect(() => {
+    discardRecordingRef.current = true;
+    requestIdRef.current += 1;
+    requestControllerRef.current?.abort();
+    requestControllerRef.current = null;
+    window.clearTimeout(timeoutRef.current);
+    if (recorderRef.current?.state === 'recording') recorderRef.current.stop();
+    audioRef.current?.pause();
+    setAudioUrl('');
+    setTranscript('');
+    setAnswer('');
+    setAudioError('');
+    setMessage('');
+    setPhase('IDLE');
+  }, [language]);
+
   const voiceEnabled = status?.enabled && status.supportedLanguages?.includes(language);
+  const copy = ASSISTANT_COPY[language] || ASSISTANT_COPY.fr;
   const isBusy = phase === 'PROCESSING' || phase === 'SPEAKING';
-  const phaseLabel = {
-    IDLE: voiceEnabled ? 'Microphone prêt' : 'Voix indisponible',
-    RECORDING: "Écoute en cours — appuyez pour envoyer",
-    PROCESSING: 'Transcription et réponse en cours…',
-    SPEAKING: 'Lecture de la réponse',
-    ERROR: 'Une erreur est survenue',
-  }[phase];
+  const phaseLabels = {
+    fr: {
+      IDLE: voiceEnabled ? 'Microphone prêt' : 'Voix indisponible',
+      RECORDING: 'Écoute en cours — appuyez pour envoyer',
+      PROCESSING: 'Transcription et réponse en cours…',
+      SPEAKING: 'Lecture de la réponse',
+      ERROR: 'Une erreur est survenue',
+    },
+    en: {
+      IDLE: voiceEnabled ? 'Microphone ready' : 'Voice unavailable',
+      RECORDING: 'Listening — press to send',
+      PROCESSING: 'Transcribing and preparing a reply…',
+      SPEAKING: 'Playing the reply',
+      ERROR: 'An error occurred',
+    },
+    wo: {
+      IDLE: 'Baatu wolof bi duggagul',
+      RECORDING: 'Mikrofon bi mi ngi déglu',
+      PROCESSING: 'Bindinu wax ji ak tontu bi mi ngi dox...',
+      SPEAKING: 'Tontu bi mi ngi doon wax',
+      ERROR: 'Am na jafe-jafe',
+    },
+  };
+  const phaseLabel = phaseLabels[language] || phaseLabels.fr;
+  const localizedPhaseLabel = phaseLabel[phase] || phaseLabel.IDLE;
 
   return (
-    <section className="voice-assistant-control" aria-label="Assistant vocal Push-to-Talk">
+    <section className="voice-assistant-control" aria-label={copy.voiceBadge}>
       <div className={`web-waveform-box ${phase === 'RECORDING' || isBusy ? 'active' : ''}`}>
-        <span className="waveform-info-txt" aria-live="polite">{phaseLabel}</span>
+        <span className="waveform-info-txt" aria-live="polite">{localizedPhaseLabel}</span>
         <div className="web-waveform-bars" aria-hidden="true">
           {Array.from({ length: 9 }, (_, index) => <div className="web-wave-bar" key={index} />)}
         </div>
@@ -231,14 +267,14 @@ export default function VoiceAssistant({ language, onVoiceResult, onNewConversat
           className={`web-btn-mic-toggle ${phase === 'RECORDING' ? 'listening' : ''}`}
           onClick={toggleRecording}
           disabled={!voiceEnabled || isBusy}
-          aria-label={phase === 'RECORDING' ? 'Arrêter et envoyer' : 'Commencer une question vocale'}
-          title={phase === 'RECORDING' ? 'Arrêter et envoyer' : 'Commencer une question vocale'}
+          aria-label={phase === 'RECORDING' ? copy.send : copy.voiceBadge}
+          title={phase === 'RECORDING' ? copy.send : copy.voiceBadge}
         >
           {phase === 'RECORDING' ? <MicOff size={22} /> : <Mic size={22} />}
         </button>
         {phase === 'RECORDING' && (
           <button type="button" className="voice-assistant-secondary" onClick={stopRecording}>
-            <Square size={15} /> Arrêter et envoyer
+            <Square size={15} /> {copy.send}
           </button>
         )}
         {audioUrl && (
@@ -252,7 +288,7 @@ export default function VoiceAssistant({ language, onVoiceResult, onNewConversat
               onPause={() => setPhase('IDLE')}
             />
             <button type="button" className="voice-assistant-secondary" onClick={playAudio}>
-              <Volume2 size={16} /> Réécouter
+              <Volume2 size={16} /> {copy.listenAnswer}
             </button>
             <button
               type="button"
@@ -262,30 +298,30 @@ export default function VoiceAssistant({ language, onVoiceResult, onNewConversat
                 setPhase('IDLE');
               }}
             >
-              Arrêter la lecture
+              {language === 'en' ? 'Stop playback' : language === 'wo' ? 'Taxawal déglu bi' : 'Arrêter la lecture'}
             </button>
           </>
         )}
         <button type="button" className="voice-assistant-secondary" onClick={resetConversation}>
-          <RotateCcw size={15} /> Nouvelle conversation
+          <RotateCcw size={15} /> {language === 'en' ? 'New conversation' : language === 'wo' ? 'Waxtaan wu bees' : 'Nouvelle conversation'}
         </button>
       </div>
 
       {!voiceEnabled && (
         <p className="voice-assistant-notice" role="status">
           {language === 'wo'
-            ? 'La voix en wolof n’est pas activée. Utilisez le champ texte ci-dessous.'
-            : status?.message || 'Assistant vocal indisponible. Configurez les fournisseurs côté backend.'}
+            ? copy.voiceUnavailable
+            : status?.message || (language === 'en'
+              ? 'Voice assistant unavailable. Configure providers on the backend.'
+              : 'Assistant vocal indisponible. Configurez les fournisseurs côté backend.')}
         </p>
       )}
       {voiceEnabled && (
-        <p className="voice-assistant-privacy">
-          En envoyant une question vocale, votre audio est transmis à OpenAI pour transcription et la réponse à ElevenLabs pour synthèse. L’audio n’est pas stocké par PhytoScan ; transcription et réponse sont conservées dans l’historique de votre compte.
-        </p>
+        <p className="voice-assistant-privacy">{copy.voicePrivacy}</p>
       )}
-      {transcript && <p className="voice-assistant-transcript"><strong>Vous avez dit :</strong> {transcript}</p>}
-      {answer && <p className="voice-assistant-answer"><strong>Réponse :</strong> {answer}</p>}
-      {audioError && <p className="voice-assistant-notice" role="status">{audioError} La réponse reste disponible en texte.</p>}
+      {transcript && <p className="voice-assistant-transcript"><strong>{copy.transcript}</strong> {transcript}</p>}
+      {answer && <p className="voice-assistant-answer"><strong>{copy.answer}</strong> {answer}</p>}
+      {audioError && <p className="voice-assistant-notice" role="status">{audioError} {copy.textAvailable}</p>}
       {message && <p className="voice-assistant-error" role="alert">{message}</p>}
     </section>
   );

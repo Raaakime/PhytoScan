@@ -64,6 +64,6 @@ def format_date(value: Optional[date], lang: str) -> str:
 # Langues proposées dans le sélecteur de l'assistant (reprend ASSISTANT_LANGUAGES de mockData.js)
 LANGUAGES = [
     {"code": "fr", "name": "Français", "flag": "🇫🇷"},
-    {"code": "wo", "name": "Wolof", "flag": "🇸🇳"},
+    {"code": "wo", "name": "Wolof (écrit)", "flag": "🇸🇳"},
     {"code": "en", "name": "English", "flag": "🇬🇧"},
 ]

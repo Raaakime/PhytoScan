@@ -1,4 +1,6 @@
 """Tests de bout en bout de l'API (base SQLite temporaire)."""
+from sqlalchemy import select
+
 from tests.conftest import API, make_image
 
 
@@ -89,6 +91,32 @@ def test_diseases_catalog(client):
     assert client.get(f"{API}/diseases/unknown").status_code == 404
 
 
+def test_wolof_disease_catalog_has_no_missing_fields(client):
+    diseases = client.get(f"{API}/diseases", params={"lang": "wo"}).json()
+    assert len(diseases) == 4
+    for disease in diseases:
+        assert disease["name"]
+        assert disease["description"]
+        assert disease["symptoms"]
+        assert disease["remedies"]
+
+
+def test_seed_backfills_empty_wolof_translation_fields(client):
+    from app.db.seed import seed_diseases
+    from app.db.session import SessionLocal
+    from app.models import Disease
+
+    with SessionLocal() as db:
+        cercospora = db.scalar(select(Disease).where(Disease.code == "cercospora"))
+        translation = next(item for item in cercospora.translations if item.lang == "wo")
+        translation.symptoms = []
+        db.commit()
+
+        seed_diseases(db)
+        db.refresh(translation)
+        assert translation.symptoms
+
+
 # ---------------- assistant ----------------
 def test_assistant_answers_in_three_languages(client):
     fr = client.post(f"{API}/assistant/ask", json={"question": "Quelle est la santé de la plante 2 ?", "language": "fr"}).json()
@@ -99,6 +127,28 @@ def test_assistant_answers_in_three_languages(client):
     assert "Batañse" in wo["text"] or "Aubergine" in wo["text"]
     hist = client.get(f"{API}/assistant/history", params={"session_id": fr["sessionId"]}).json()
     assert [m["sender"] for m in hist["messages"]] == ["user", "bot"]
+
+
+def test_wolof_assistant_recognizes_diacritics_and_common_intents(client):
+    plant = client.post(
+        f"{API}/assistant/ask",
+        json={"question": "Naka la wàllu garab 2 gi deme ?", "language": "wo"},
+    ).json()
+    assert "Aubergine" in plant["text"]
+    assert "À surveiller" not in plant["text"]
+
+    disease = client.post(
+        f"{API}/assistant/ask",
+        json={"question": "Nan lañuy fajee tàcc yu ñuul ci xobi tomate ?", "language": "wo"},
+    ).json()
+    assert "Ngir faj" in disease["text"]
+    assert "Pour traiter" not in disease["text"]
+
+    sick = client.post(
+        f"{API}/assistant/ask",
+        json={"question": "Ban garab ñoo feebar leegi ?", "language": "wo"},
+    ).json()
+    assert "Garab yi ñu war a saytu" in sick["text"]
 
 
 # ---------------- authentification ----------------
@@ -115,6 +165,7 @@ def test_auth_flow(client):
     assert registered.status_code == 201
     assert registered.json()["farmName"] == creds["farmName"]
     assert registered.json()["agriculturalRole"] == creds["agriculturalRole"]
+    assert registered.json()["preferredLang"] == "wo"
     assert client.post(f"{API}/auth/register", json=creds).status_code == 409   # e-mail déjà pris
 
     bad = client.post(f"{API}/auth/login", data={"username": "awa@example.com", "password": "faux"})

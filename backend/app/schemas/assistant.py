@@ -13,6 +13,11 @@ class AskRequest(CamelModel):
     session_id: Optional[str] = None            # pour regrouper une discussion (généré si absent)
 
 
+class SpeechRequest(CamelModel):
+    text: str = Field(min_length=1, max_length=2000)
+    language: str = "wo"
+
+
 class AskResponse(CamelModel):
     text: str
     timestamp: str                              # "hh:mm"

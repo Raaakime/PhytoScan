@@ -31,7 +31,7 @@ export default function App() {
     }
 
     let cancelled = false;
-    listPlants()
+    listPlants(currentUser?.preferredLang || 'fr')
       .then(plants => {
         if (!cancelled) {
           setPlantsList(plants);
@@ -99,7 +99,7 @@ export default function App() {
 
   const handleCreatePlant = async (plantData) => {
     try {
-      const plant = await createPlant(plantData);
+      const plant = await createPlant(plantData, currentUser?.preferredLang || 'fr');
       setPlantsList(previous => [plant, ...previous]);
       setPlantsError('');
       return plant;
@@ -111,7 +111,11 @@ export default function App() {
 
   const handleSaveDiagnosticToPlant = async (diagnostic) => {
     try {
-      const plant = await savePlantDiagnostic(diagnostic.plantId, diagnostic);
+      const plant = await savePlantDiagnostic(
+        diagnostic.plantId,
+        diagnostic,
+        currentUser?.preferredLang || 'fr'
+      );
       setPlantsList(previous => previous.map(item => item.id === plant.id ? plant : item));
       setPlantsError('');
       return plant;
@@ -151,6 +155,7 @@ export default function App() {
         return (
           <VoiceAssistantScreen 
             plants={plantsList}
+            initialLanguage={currentUser?.preferredLang || 'fr'}
             initialQuery={navigationParams?.initialQuery || ''}
             onClearInitialQuery={() => setNavigationParams(prev => ({ ...prev, initialQuery: '' }))}
             onNavigateToScan={(params) => navigateTo('scan', params)}

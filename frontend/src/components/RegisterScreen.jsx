@@ -21,6 +21,7 @@ export default function RegisterScreen({ onNavigateToLogin, onRegisterSuccess })
     email: '',
     farmName: '',
     role: 'Maraîcher / Exploitant Agricole',
+    preferredLang: 'fr',
     password: '',
     confirmPassword: '',
     acceptTerms: true
@@ -72,7 +73,8 @@ export default function RegisterScreen({ onNavigateToLogin, onRegisterSuccess })
       email: formData.email,
       password: formData.password,
       farmName: formData.farmName,
-      role: formData.role
+      role: formData.role,
+      preferredLang: formData.preferredLang
     });
     setLoading(false);
 
@@ -132,8 +134,8 @@ export default function RegisterScreen({ onNavigateToLogin, onRegisterSuccess })
                 <CheckCircle2 size={18} color="#34d399" />
               </div>
               <div>
-                <strong>Assistant vocal multilingue</strong>
-                <p>Posez vos questions agronomiques à la voix en Français, Wolof et Anglais.</p>
+                <strong>Assistant agronomique multilingue</strong>
+                <p>Échangez par écrit en français, wolof et anglais ; le mode vocal est disponible en français et en anglais.</p>
               </div>
             </div>
           </div>
@@ -243,6 +245,22 @@ export default function RegisterScreen({ onNavigateToLogin, onRegisterSuccess })
               </div>
             </div>
 
+            <div className="form-group">
+              <label className="auth-label" htmlFor="preferred-language">
+                <span>Langue préférée de l'assistant</span>
+              </label>
+              <select
+                id="preferred-language"
+                className="auth-select"
+                value={formData.preferredLang}
+                onChange={e => handleChange('preferredLang', e.target.value)}
+              >
+                <option value="fr">Français</option>
+                <option value="wo">Wolof (écrit)</option>
+                <option value="en">English</option>
+              </select>
+            </div>
+
             <div className="auth-row-2col">
               <div className="form-group">
                 <label className="auth-label">
@@ -331,4 +349,3 @@ export default function RegisterScreen({ onNavigateToLogin, onRegisterSuccess })
     </div>
   );
 }
-

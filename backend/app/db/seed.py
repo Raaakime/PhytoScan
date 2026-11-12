@@ -3,8 +3,8 @@
 Lancer à la main :  python -m app.db.seed
 Le script est IDEMPOTENT : il n'ajoute que ce qui manque (on peut le relancer sans doublons).
 
-ATTENTION wolof : seuls les textes déjà présents dans le front sont repris. Le reste retombe
-automatiquement sur le français (voir Disease.get_translation). À faire traduire/valider.
+ATTENTION wolof : les traductions de démonstration sont des ébauches ; elles doivent être
+validées par un locuteur wolof et un agronome avant toute utilisation en production.
 """
 from datetime import date
 
@@ -45,6 +45,18 @@ DISEASES = {
                              "Keep up regular health monitoring with PhytoScan AI"],
                 "healthy_comparison": "Reference leaf free of any necrosis.",
             },
+            "wo": {
+                "name": "Garab gu wér", "pathogen": "Amul",
+                "severity_label": "Dara jafe-jafe",
+                "description": "Garab gi dafay màgg bu baax te amul màndarga yu feeñu yu wone feebar walla njaxlaf.",
+                "symptoms": ["Xob yi ñuul nañu te leer", "Xob yi ak seeni rëdd am nañu seen melokaan",
+                             "Amul bàq yu ñuul, njaxlaf walla xob yu soppiku"],
+                "remedies": ["Wéyal ni ngay topatoo garab gi tey",
+                             "Wéyal ndox ak meññeef yi nga di joxe",
+                             "Xoolaat garab gi ci ay fan ngir seet lu bees",
+                             "Saytu garab gi saa su nekk"],
+                "healthy_comparison": "Xob mu wér te amul bàq yu ñuul.",
+            },
         },
     },
     "cercospora": {
@@ -78,15 +90,19 @@ DISEASES = {
                 "healthy_comparison": "Healthy plant: uniform green cuticle.",
                 "infected_comparison": "Diseased plant: concentric necrotic spots.",
             },
-            # Wolof : textes tirés d'octopusApi.js (réponse "cercospora"), À VALIDER par un locuteur.
+            # Ébauches wolof à faire valider par un locuteur et un agronome avant production.
             "wo": {
                 "name": "Tàcc yu ñuul ci xob (Cercospora)", "pathogen": "Cercospora capsici / solani",
                 "severity_label": "Ndaw ju mag",
                 "description": "Tàcc yu ñuul ci xob yi, ak melo wu mboq : kon feebar bu sòrli ci Cercospora la.",
-                "symptoms": [],
-                "remedies": ["Daggël xob yi feebar te lakk leen",
-                             "Bu sayteel xob yi ndox ci kow",
-                             "Defaral ko garabu cuub wala ndoxum soble"],
+                "symptoms": ["Bàq yu weex-ñuul te wër xob yi", "Melo wu mboq ci wet bàq yi",
+                             "Xob yu suufe yi dañuy wow te rot"],
+                "remedies": ["Daggël xob yi feebar te jële leen ci tool bi",
+                             "Bul tóol ndox ci kaw xob yi; tóol ko ci suuf, ci wetu reen yi",
+                             "Su feebar bi yokkee, laajal ndimbal ci garab bu ñu may ci réew mi",
+                             "Raxas jumtukaay yi ginnaaw boo daggee xob yi"],
+                "healthy_comparison": "Xob mu wér, wu ñuul te amul bàq.",
+                "infected_comparison": "Xob bu am bàq yu ñuul yu wër-wër.",
             },
         },
     },
@@ -112,6 +128,16 @@ DISEASES = {
                 "remedies": ["Cut off affected parts immediately", "Ventilate greenhouses and space the plants",
                              "Apply copper treatment before rain"],
             },
+            "wo": {
+                "name": "Mildiou (Phytophthora infestans)", "pathogen": "Phytophthora infestans",
+                "severity_label": "Feebar bu metti lool",
+                "description": "Feebar bii dafay law gaaw. Dafay tàmbalee ak bàq yu ni mel ni diw ci xob yi, te mujj wow; ci suuf xob yi mën na am melokaanu poof bu weex.",
+                "symptoms": ["Bàq yu ni mel ni diw ci kaw xob yi", "Poof bu weex walla mboq ci suuf xob yi",
+                             "Xob yi, bant yi ak meññeef yi mën nañu wow gaaw"],
+                "remedies": ["Daggël te jële yeneen yëf yi feebar bi laal",
+                             "Ubbi bérab bi ngelaw man a jaar, te sori garab yi",
+                             "Jëfandikoo garab bu am cuuru bu ñu may ci réew mi; laajal ku xam garab yi"],
+            },
         },
     },
     # Oïdium : cité dans la fiche de la plante 2 (aubergine). Contenu rédigé pour le test, à faire valider par un agronome.
@@ -134,6 +160,16 @@ DISEASES = {
                              "Deformation and drying of affected leaves"],
                 "remedies": ["Treat with baking soda or sulphur within 24h", "Ventilate rows and reduce humidity",
                              "Remove the most affected leaves"],
+            },
+            "wo": {
+                "name": "Oïdium (feebar bu weex ci xob)", "pathogen": "Erysiphales",
+                "severity_label": "Feebar bu tollu",
+                "description": "Melo mu weex ni powder dafay feeñ ci kaw xob yi. Tàngoor ak tooy mën nañu tax mu law gaaw.",
+                "symptoms": ["Melo mu weex ni powder ci xob yi", "Xob yu suufe yi dañuy ñuul tuuti",
+                             "Xob yi mën nañu soppiku te wow"],
+                "remedies": ["Jëfandikoo bicarbonate walla soufre bu ñu may ci réew mi; laajal ku xam garab yi",
+                             "Ubbi bérab bi ngelaw man a jaar te wàññi tooy bi",
+                             "Daggël xob yi feebar bi laal lool"],
             },
         },
     },
@@ -207,17 +243,22 @@ PLANTS = [
 
 
 def seed_diseases(db: Session) -> None:
-    """Ajoute les maladies et traductions manquantes."""
+    """Ajoute les maladies et traductions manquantes, puis complète les champs wolof vides."""
     for code, data in DISEASES.items():
         disease = db.scalar(select(Disease).where(Disease.code == code))
         if disease is None:
             disease = Disease(code=code, is_healthy=data["is_healthy"], severity_level=data["severity_level"])
             db.add(disease)
             db.flush()  # obtient l'id avant d'ajouter les traductions
-        existing_langs = {t.lang for t in disease.translations}
+        existing = {t.lang: t for t in disease.translations}
         for lang, tr in data["translations"].items():
-            if lang not in existing_langs:
+            if lang not in existing:
                 db.add(DiseaseTranslation(disease_id=disease.id, lang=lang, **tr))
+            elif lang == "wo":
+                # Backfill blank fields in existing installations without overwriting reviewed text.
+                for field, value in tr.items():
+                    if not getattr(existing[lang], field):
+                        setattr(existing[lang], field, value)
     db.commit()
 
 

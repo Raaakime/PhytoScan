@@ -1,0 +1,2 @@
+# Optional CPU-based Wolof text-to-speech. Install after accepting the model terms.
+pocket-tts==4.0.1

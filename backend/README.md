@@ -1,7 +1,7 @@
 # PhytoScan AI – Back-end (FastAPI)
 
 API du projet PhytoScan : diagnostic de maladies de plantes par IA, carnet de santé des cultures,
-assistant multilingue (Français / Wolof / Anglais) et authentification JWT.
+assistant écrit multilingue (Français / Wolof / Anglais), voix en français/anglais et authentification JWT.
 
 ## Démarrage rapide (Windows)
 
@@ -86,7 +86,43 @@ VOICE_MAX_AUDIO_SECONDS=60
 VOICE_PROVIDER_TIMEOUT_SECONDS=45
 ```
 
-Le service vocal reste désactivé si `VOICE_ENABLED=false` ou si une clé/voix requise manque ; l'assistant textuel continue de fonctionner. L'endpoint vocal exige une session authentifiée, même si `AUTH_REQUIRED=false`, afin de limiter l'utilisation anonyme des API facturées. Les enregistrements sont transmis à OpenAI et ElevenLabs et ne sont pas persistés localement ; la transcription et la réponse textuelle restent dans l'historique chat du compte. Le Push-to-Talk est limité au français et à l'anglais ; le wolof reste disponible par écrit, sans prétendre à une reconnaissance ou une voix wolof fiables. La réponse vocale utilise le moteur à règles existant, pas un LLM, et ne tient donc pas compte d'un historique conversationnel au-delà de l'identifiant de session enregistré.
+Le service Push-to-Talk reste désactivé si `VOICE_ENABLED=false` ou si une clé/voix requise manque ; l'assistant textuel continue de fonctionner. L'endpoint Push-to-Talk exige une session authentifiée, même si `AUTH_REQUIRED=false`, afin de limiter l'utilisation anonyme des API facturées. Les enregistrements sont transmis à OpenAI et ElevenLabs et ne sont pas persistés localement ; la transcription et la réponse textuelle restent dans l'historique chat du compte. La reconnaissance de la parole reste limitée au français et à l'anglais. La réponse vocale utilise le moteur à règles existant, pas un LLM, et ne tient donc pas compte d'un historique conversationnel au-delà de l'identifiant de session enregistré.
+
+### Synthèse vocale wolof (prototype)
+
+Les réponses écrites en wolof peuvent être lues à la demande avec le modèle communautaire [Wolof Pocket TTS](https://huggingface.co/abdazizsall/wolof-pocket-tts). Ce parcours est distinct du Push-to-Talk : il convertit du texte en audio, mais ne transcrit pas la parole et n'active pas la reconnaissance vocale wolof. L'endpoint authentifié `POST /phytoscan/v1/assistant/speech` renvoie un WAV non mis en cache.
+
+Suivre ces étapes dans l'ordre. Ne pas demander au locuteur de fournir un enregistrement avant d'avoir expliqué l'usage prévu et obtenu son consentement éclairé.
+
+1. **Obtenir l'accès au modèle.** Se connecter à Hugging Face, ouvrir la fiche du modèle et accepter ses conditions d'accès. Vérifier que le compte a effectivement accès aux fichiers du modèle. La licence affichée est `CC-BY-SA-4.0` : examiner les obligations d'attribution et de partage à l'identique avant toute redistribution ou usage commercial.
+2. **Créer le prompt vocal consenti.** Enregistrer un échantillon propre de 3 à 10 secondes au format WAV et obtenir l'accord explicite du locuteur pour son utilisation comme référence de synthèse. Conserver le fichier localement dans un emplacement stable, hors du dépôt Git. Ne pas utiliser une voix de tiers sans autorisation.
+3. **Installer la dépendance optionnelle.** Depuis PowerShell, à la racine du dépôt :
+
+   ```powershell
+   Set-Location .\backend
+   .\.venv\Scripts\Activate.ps1
+   python -m pip install -r requirements-voice-wolof.txt
+   python -c "from pocket_tts import TTSModel; print('Pocket TTS import OK')"
+   ```
+
+   Si l'environnement virtuel n'existe pas encore, le créer et installer d'abord les dépendances normales comme indiqué dans « Démarrage rapide (Windows) ». Cette dépendance n'est pas nécessaire pour lancer les tests simulés ou utiliser le reste de l'application.
+4. **Créer/configurer le secret et les paramètres.** Créer un jeton Hugging Face autorisé à lire le modèle. Dans `backend/.env`, renseigner les valeurs ci-dessous. Remplacer les exemples ; ne jamais publier ni committer le jeton. Utiliser un chemin absolu vers le WAV ; les `/` sont acceptés dans un chemin Windows et évitent les problèmes d'échappement :
+
+   ```env
+   WOLOF_TTS_ENABLED=true
+   HF_TOKEN=coller_le_jeton_localement
+   WOLOF_TTS_MODEL_CONFIG=hf://abdazizsall/wolof-pocket-tts/config.yaml
+   WOLOF_TTS_VOICE_PROMPT=C:/chemin/absolu/vers/voix-consentie.wav
+   ```
+
+   Vérifier que le `.env` est bien dans `backend`, que le fichier indiqué existe et que `.env` n'est pas suivi par Git. Ne pas mettre le jeton dans le code, une commande partagée, une capture d'écran ou le dépôt.
+5. **Redémarrer le backend.** Depuis `backend`, lancer `uvicorn app.main:app --reload --port 8000`. Les réglages sont chargés au démarrage : modifier `.env` sans redémarrer ne suffit pas.
+6. **Tester le parcours de bout en bout.** Démarrer le frontend (`npm run dev` dans `frontend`), se connecter à un compte, ouvrir l'assistant, choisir le wolof, envoyer une question puis cliquer sur « Lire la réponse ». Le navigateur doit recevoir puis jouer un WAV. La connexion est obligatoire pour cette route, même si `AUTH_REQUIRED=false`.
+7. **Valider le résultat avec un locuteur wolophone.** Écouter plusieurs réponses représentatives ; faire vérifier la prononciation, notamment les nombres et noms de maladies, ainsi que l'intelligibilité et la voix générée. Un locuteur wolophone et un agronome doivent aussi valider les traductions et recommandations avant tout usage de production.
+
+Au premier clic, le serveur télécharge la configuration et les poids depuis Hugging Face ; il faut une connexion Internet, un accès valide et suffisamment de RAM. Le modèle est ensuite gardé en mémoire jusqu'à l'arrêt du processus. En cas d'erreur, vérifier dans les journaux du backend l'accès Hugging Face/acceptation des conditions, le jeton, l'import du paquet, le chemin du WAV et son consentement. Les tests automatisés actuels simulent le modèle : ils ne prouvent ni le téléchargement réel, ni la génération, ni la qualité audio. Ne déclarer le parcours prêt qu'après un test réel réussi et une validation humaine.
+
+Le compte peut choisir le wolof comme langue préférée ; ce choix préremplit la langue de l'assistant et les libellés de statut des plantes. Les traductions wolof de l'interface, de l'assistant et des fiches de maladies sont des ébauches techniques, non certifiées : un locuteur wolof et un agronome doivent les relire avant la production, surtout les recommandations phytosanitaires. Le seeding ajoute les traductions manquantes et complète les champs wolof vides des bases déjà initialisées sans écraser les champs non vides. Après les migrations, mettre à jour une base existante avec `python -m app.db.seed --no-demo`.
 
 Aux tarifs affichés lors de l'intégration, 10 secondes de transcription coûtent environ 0,00075 $ avec OpenAI `gpt-transcribe`, et 1 000 caractères de réponse environ 0,04 $ avec ElevenLabs v4 Turbo (hors taxes, quota/plan fournisseur et coût d'hébergement). Le coût fournisseur estimatif est donc d'environ 0,041 $ pour une réponse de 1 000 caractères. Vérifier les tarifs avant mise en production : [OpenAI STT](https://developers.openai.com/api/docs/models/gpt-transcribe), [ElevenLabs API](https://elevenlabs.io/pricing/api).
 
@@ -155,5 +191,5 @@ app/
 ## Points d'attention
 
 - Le classifieur « mock » n'est PAS une vraie IA (heuristique sur les couleurs) : il sert uniquement à tester le flux.
-- Les textes wolof sont à faire valider par un locuteur ; sans traduction, l'API retombe sur le français.
+- Les traductions wolof du dépôt sont des ébauches à valider par un locuteur et un agronome avant production.
 - Les migrations Alembic seront ajoutées avant le déploiement (aujourd'hui : `create_all` au démarrage).

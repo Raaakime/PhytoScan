@@ -4,7 +4,7 @@ import wave
 
 from app.core.config import get_settings
 from app.core.exceptions import UpstreamServiceError
-from app.voice.providers import elevenlabs_tts, openai_stt
+from app.voice.providers import elevenlabs_tts, openai_stt, wolof_pocket_tts
 from tests.conftest import API
 
 
@@ -116,6 +116,52 @@ def test_voice_chat_rejects_wolof_and_invalid_audio(client, monkeypatch):
         headers=auth,
     )
     assert invalid.status_code == 415
+
+
+def test_wolof_speech_returns_wav_for_authenticated_user(client, monkeypatch):
+    settings = get_settings()
+    monkeypatch.setattr(settings, "WOLOF_TTS_ENABLED", True)
+    monkeypatch.setattr(settings, "HF_TOKEN", "test-hf-token")
+    monkeypatch.setattr(settings, "WOLOF_TTS_VOICE_PROMPT", "C:\\voices\\consented-speaker.wav")
+    monkeypatch.setattr(wolof_pocket_tts, "synthesize", lambda text: make_wav())
+    auth = create_auth_header(client)
+
+    response = client.post(
+        f"{API}/assistant/speech",
+        json={"text": "Garab gi dafay wér.", "language": "wo"},
+        headers=auth,
+    )
+
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "audio/wav"
+    assert response.content.startswith(b"RIFF")
+    assert response.headers["cache-control"] == "no-store"
+
+
+def test_wolof_speech_requires_auth_and_configuration(client, monkeypatch):
+    settings = get_settings()
+    monkeypatch.setattr(settings, "WOLOF_TTS_ENABLED", False)
+    auth = create_auth_header(client)
+    payload = {"text": "Garab gi dafay wér.", "language": "wo"}
+
+    unauthorized = client.post(f"{API}/assistant/speech", json=payload)
+    assert unauthorized.status_code == 401
+
+    unavailable = client.post(f"{API}/assistant/speech", json=payload, headers=auth)
+    assert unavailable.status_code == 503
+    assert "WOLOF_TTS_ENABLED" in unavailable.json()["detail"]
+
+
+def test_wolof_speech_only_accepts_wolof(client, monkeypatch):
+    auth = create_auth_header(client)
+    response = client.post(
+        f"{API}/assistant/speech",
+        json={"text": "Hello world.", "language": "en"},
+        headers=auth,
+    )
+
+    assert response.status_code == 400
+    assert "wolof" in response.json()["detail"].lower()
 
 
 def test_voice_chat_enforces_size_and_duration_limits(client, monkeypatch):

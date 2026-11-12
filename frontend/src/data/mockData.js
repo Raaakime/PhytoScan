@@ -161,60 +161,12 @@ export const COMMON_DISEASES = {
   }
 };
 
-// Dictionnaire multilingue pour l'Assistant Vocal (Français, Wolof, Anglais)
+// Langues de l'assistant écrit ; la voix est disponible en français et en anglais.
 export const ASSISTANT_LANGUAGES = [
   { code: "fr", name: "Français", flag: "🇫🇷" },
-  { code: "wo", name: "Wolof", flag: "🇸🇳" },
+  { code: "wo", name: "Wolof (écrit)", flag: "🇸🇳" },
   { code: "en", name: "English", flag: "🇬🇧" }
 ];
-
-export const INITIAL_CHAT_MESSAGES = {
-  fr: [
-    {
-      id: "m-1",
-      sender: "user",
-      text: "Quelle est la santé de la plante 2 ?",
-      timestamp: "10:22"
-    },
-    {
-      id: "m-2",
-      sender: "bot",
-      text: "La plante 2 (Aubergine) présente des premiers signes de maladie (début d'oïdium sur feuilles basses). Je vous conseille d'intervenir rapidement avec un traitement adapté ou du purin de prêle.",
-      timestamp: "10:23",
-      hasAudio: true
-    }
-  ],
-  wo: [
-    {
-      id: "m-1",
-      sender: "user",
-      text: "Naka la wàllu garab 2 gi deme ?",
-      timestamp: "10:22"
-    },
-    {
-      id: "m-2",
-      sender: "bot",
-      text: "Garab 2 (Batañse) bi dafa tàmbalee feebar ci xob yu suufe yi. Dafa laaj nga defaral ko garab lu gaaw ngir feebar bi bu mu tasaaroo ci yeneen garab yi.",
-      timestamp: "10:23",
-      hasAudio: true
-    }
-  ],
-  en: [
-    {
-      id: "m-1",
-      sender: "user",
-      text: "What is the health status of plant 2?",
-      timestamp: "10:22"
-    },
-    {
-      id: "m-2",
-      sender: "bot",
-      text: "Plant 2 (Eggplant) is showing early warning signs of disease (early powdery mildew on lower leaves). I recommend acting promptly with an organic fungicide or horsetail extract.",
-      timestamp: "10:23",
-      hasAudio: true
-    }
-  ]
-};
 
 export const SAMPLE_QUESTIONS = {
   fr: [
