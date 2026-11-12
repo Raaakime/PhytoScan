@@ -61,11 +61,36 @@ envoient également ce jeton lorsqu'une session existe.
 
 Langue : ajouter `?lang=fr|wo|en` à chaque requête (sinon l'en-tête `Accept-Language`, puis le français).
 
-## Voix (assistant vocal)
+## Assistant vocal Push-to-Talk
 
-Reconnaissance et synthèse vocales sont faites par le navigateur (Web Speech API). Le back ne traite que du texte.
-Le wolof n'est pas géré correctement par le navigateur : une synthèse/reconnaissance côté serveur sera à prévoir
-(`audioUrl` est déjà prévu dans la réponse de `/assistant/ask`).
+Le parcours vocal utilise l'API FastAPI, sans envoyer de clé fournisseur au navigateur :
+
+1. `GET /phytoscan/v1/voice/status` indique si les fournisseurs sont configurés.
+2. `POST /phytoscan/v1/voice/chat` reçoit `audio` (multipart), `language` (`fr` ou `en`) et un `session_id` facultatif.
+3. Le serveur valide le conteneur, le type MIME, la taille et la durée, transmet l'audio à OpenAI STT, réutilise `assistant_service.ask`, puis demande l'audio de réponse à ElevenLabs.
+4. La réponse contient `transcript`, `text`, `sessionId` et `audioBase64` (MP3). L'audio n'est pas conservé sur disque.
+
+Installer les dépendances, puis ajouter au fichier `.env` :
+
+```env
+VOICE_ENABLED=true
+VOICE_STT_PROVIDER=openai
+VOICE_TTS_PROVIDER=elevenlabs
+OPENAI_API_KEY=...
+OPENAI_STT_MODEL=gpt-transcribe
+ELEVENLABS_API_KEY=...
+ELEVENLABS_VOICE_ID=...
+ELEVENLABS_TTS_MODEL=eleven_v4_turbo
+VOICE_MAX_AUDIO_MB=8
+VOICE_MAX_AUDIO_SECONDS=60
+VOICE_PROVIDER_TIMEOUT_SECONDS=45
+```
+
+Le service vocal reste désactivé si `VOICE_ENABLED=false` ou si une clé/voix requise manque ; l'assistant textuel continue de fonctionner. L'endpoint vocal exige une session authentifiée, même si `AUTH_REQUIRED=false`, afin de limiter l'utilisation anonyme des API facturées. Les enregistrements sont transmis à OpenAI et ElevenLabs et ne sont pas persistés localement ; la transcription et la réponse textuelle restent dans l'historique chat du compte. Le Push-to-Talk est limité au français et à l'anglais ; le wolof reste disponible par écrit, sans prétendre à une reconnaissance ou une voix wolof fiables. La réponse vocale utilise le moteur à règles existant, pas un LLM, et ne tient donc pas compte d'un historique conversationnel au-delà de l'identifiant de session enregistré.
+
+Aux tarifs affichés lors de l'intégration, 10 secondes de transcription coûtent environ 0,00075 $ avec OpenAI `gpt-transcribe`, et 1 000 caractères de réponse environ 0,04 $ avec ElevenLabs v4 Turbo (hors taxes, quota/plan fournisseur et coût d'hébergement). Le coût fournisseur estimatif est donc d'environ 0,041 $ pour une réponse de 1 000 caractères. Vérifier les tarifs avant mise en production : [OpenAI STT](https://developers.openai.com/api/docs/models/gpt-transcribe), [ElevenLabs API](https://elevenlabs.io/pricing/api).
+
+Le frontend nécessite l'accès au microphone via HTTPS (ou `localhost`) et une prise en charge navigateur de `MediaRecorder`. Exécuter `python -m pytest` pour les tests backend ; les fournisseurs sont simulés pendant les tests.
 
 ## Migrations (Alembic)
 
