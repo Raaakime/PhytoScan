@@ -361,7 +361,7 @@ export async function askOctopusAssistant(question, language = "fr", context = {
   }
 
   // Réponses contextuelles multilingues intelligentes
-  const qLower = question.toLowerCase();
+  const qLower = question.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 
   const responses = {
     fr: {
@@ -431,7 +431,7 @@ export async function askOctopusAssistant(question, language = "fr", context = {
     reply = langSet.mildiou;
   } else if (qLower.includes("oïdium") || qLower.includes("oidium") || qLower.includes("chlorose") || qLower.includes("mildew") || qLower.includes("weex")) {
     reply = langSet.oidium;
-  } else if (qLower.includes("cercospora") || qLower.includes("tache") || qLower.includes("tàcc") || qLower.includes("spot")) {
+  } else if (qLower.includes("cercospora") || qLower.includes("tache") || qLower.includes("tacc") || qLower.includes("spot")) {
     reply = langSet.cercospora;
   } else if (qLower.includes("arros") || qLower.includes("suub") || qLower.includes("water")) {
     reply = langSet.arrosage;

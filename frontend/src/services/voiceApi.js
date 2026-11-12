@@ -1,4 +1,4 @@
-import { apiRequest } from './apiClient';
+import { apiBlobRequest, apiRequest } from './apiClient';
 
 export const getVoiceStatus = () => apiRequest('/voice/status');
 
@@ -10,3 +10,11 @@ export const sendVoiceMessage = ({ audio, language, sessionId, signal }) => {
 
   return apiRequest('/voice/chat', { method: 'POST', body: form, signal });
 };
+
+export const synthesizeWolofSpeech = (text, signal) =>
+  apiBlobRequest('/assistant/speech', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text, language: 'wo' }),
+    signal,
+  });

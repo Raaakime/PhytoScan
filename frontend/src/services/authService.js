@@ -7,6 +7,7 @@ const normalizeUser = (user) => ({
   name: user.fullName || user.name || user.email,
   farmName: user.farmName || '',
   role: user.agriculturalRole || user.role || 'Agriculteur',
+  preferredLang: user.preferredLang || user.preferred_lang || 'fr',
   avatarColor: '#10b981'
 });
 
@@ -30,13 +31,13 @@ export const getCurrentUser = () => {
       return null;
     }
     const data = localStorage.getItem(AUTH_USER_KEY) || sessionStorage.getItem(AUTH_USER_KEY);
-    return data ? JSON.parse(data) : null;
+    return data ? normalizeUser(JSON.parse(data)) : null;
   } catch {
     return null;
   }
 };
 
-export const registerUser = async ({ name, email, password, farmName, role }) => {
+export const registerUser = async ({ name, email, password, farmName, role, preferredLang = 'fr' }) => {
   try {
     await apiRequest('/auth/register', {
       method: 'POST',
@@ -46,7 +47,8 @@ export const registerUser = async ({ name, email, password, farmName, role }) =>
         password,
         fullName: name.trim(),
         farmName: farmName.trim() || null,
-        agriculturalRole: role
+        agriculturalRole: role,
+        preferredLang
       })
     });
     return await loginUser(email, password);
@@ -81,6 +83,4 @@ export const logoutUser = () => {
   localStorage.removeItem(AUTH_USER_KEY);
   sessionStorage.removeItem(AUTH_USER_KEY);
 };
-
-
 

@@ -47,9 +47,9 @@ export default function FooterBanner({ onNavigate }) {
               <Mic size={24} />
             </div>
             <div>
-              <h4 className="footer-feature-title">Conseiller Vocal Multilingue</h4>
+              <h4 className="footer-feature-title">Assistant agronomique multilingue</h4>
               <p className="footer-feature-desc">
-                Assistance agronomique en temps réel en Français, Wolof et Anglais avec synthèse vocale.
+                Échange écrit en français, wolof et anglais ; voix disponible en français et en anglais.
               </p>
             </div>
           </div>

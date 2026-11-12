@@ -69,6 +69,10 @@ class Settings(BaseSettings):
     ELEVENLABS_API_KEY: str = ""
     ELEVENLABS_VOICE_ID: str = ""
     ELEVENLABS_TTS_MODEL: str = "eleven_v4_turbo"
+    WOLOF_TTS_ENABLED: bool = False
+    HF_TOKEN: str = ""
+    WOLOF_TTS_MODEL_CONFIG: str = "hf://abdazizsall/wolof-pocket-tts/config.yaml"
+    WOLOF_TTS_VOICE_PROMPT: str = ""
 
     # --- Images de comparaison (servies par le front dans /public/assets) ---
     COMPARISON_HEALTHY_IMG: str = "/assets/comparaison_saine.jpg"

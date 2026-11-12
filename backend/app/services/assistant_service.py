@@ -9,6 +9,7 @@ dans VoiceAssistantScreen. Le back ne traite donc que du texte ; `audioUrl` rest
 ATTENTION : les phrases wolof ci-dessous sont des propositions à faire valider par un locuteur.
 """
 import re
+import unicodedata
 import uuid
 from abc import ABC, abstractmethod
 from functools import lru_cache
@@ -67,16 +68,22 @@ SUGGESTIONS = {
            "Which crops need urgent attention today?", "Watering tips for tomatoes during hot weather"],
 }
 
-# Mots-clés (dans les 3 langues). "powdery" est testé avant "mildew".
+# Mots-clés français, anglais et wolof. Les accents sont ignorés à la recherche.
 DISEASE_KEYWORDS = [
-    ("powdery_mildew", ("oïdium", "oidium", "powdery")),
+    ("powdery_mildew", ("oïdium", "oidium", "powdery", "xob yu weex")),
     ("mildew", ("mildiou", "mildew", "blight")),
-    ("cercospora", ("cercospora", "tache", "tàcc", "spot")),
+    ("cercospora", ("cercospora", "tache", "tàcc", "tacc", "spot")),
 ]
-SICK_KEYWORDS = ("malade", "feebar", "sick", "urgent", "attention", "diseased")
-WATER_KEYWORDS = ("arros", "suub", "water", "irrig")
-CARE_KEYWORDS = ("soin", "care", "entretien", "recommandation")
+SICK_KEYWORDS = ("malade", "feebar", "metti", "sick", "urgent", "attention", "diseased")
+WATER_KEYWORDS = ("arros", "suub", "suubal", "water", "irrig")
+CARE_KEYWORDS = ("soin", "care", "entretien", "recommandation", "saytu")
 TREAT_KEYWORDS = ("remède", "remede", "protocole", "traiter", "traitement", "treat", "remed", "protocol", "faj")
+
+
+def _normalize_query(value: str) -> str:
+    """Normalise les variantes d'accents et de casse sans modifier le texte conservé en historique."""
+    decomposed = unicodedata.normalize("NFKD", value.casefold())
+    return "".join(character for character in decomposed if not unicodedata.combining(character))
 
 
 # ---------------------------------------------------------------- interface
@@ -104,13 +111,13 @@ class RuleBasedAssistant(BaseAssistant):
             return found, (None if found else n)
         # Par nom : on essaie les noms les plus longs d'abord (évite de confondre deux noms proches)
         for p in sorted(plants, key=lambda p: -len(p.name)):
-            if p.name.lower() in q:
+            if _normalize_query(p.name) in q:
                 return p, None
         return None, None
 
     def answer(self, db: Session, question: str, lang: str, context: dict, owner_id: Optional[int]) -> str:
         tx = TEXTS[lang]
-        q = question.lower()
+        q = _normalize_query(question)
         parts: List[str] = []
 
         # 1) Plante ciblée -> son état

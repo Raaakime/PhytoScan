@@ -49,7 +49,7 @@ const refreshAccessToken = async (baseUrl) => {
   return true;
 };
 
-const request = async (path, options, retry = true, baseUrl = getConfiguredApiBaseUrl()) => {
+const request = async (path, options, retry = true, baseUrl = getConfiguredApiBaseUrl(), responseType = 'json') => {
   const headers = new Headers(options.headers || {});
   const token = getAccessToken();
   if (token) headers.set('Authorization', `Bearer ${token}`);
@@ -61,7 +61,7 @@ const request = async (path, options, retry = true, baseUrl = getConfiguredApiBa
     throw new Error(`Impossible de joindre l'API à ${baseUrl}. Vérifiez que le backend FastAPI est démarré et que CORS autorise le frontend.`);
   }
   if (response.status === 401 && retry && path !== '/auth/refresh' && await refreshAccessToken(baseUrl)) {
-    return request(path, options, false, baseUrl);
+    return request(path, options, false, baseUrl, responseType);
   }
 
   if (!response.ok) {
@@ -80,10 +80,13 @@ const request = async (path, options, retry = true, baseUrl = getConfiguredApiBa
     throw new Error(message);
   }
 
-  return response.status === 204 ? null : response.json();
+  if (response.status === 204) return null;
+  return responseType === 'blob' ? response.blob() : response.json();
 };
 
 export const apiRequest = (path, options = {}, baseUrl = getConfiguredApiBaseUrl()) => request(path, options, true, baseUrl);
+export const apiBlobRequest = (path, options = {}, baseUrl = getConfiguredApiBaseUrl()) =>
+  request(path, options, true, baseUrl, 'blob');
 
 export const authHeaders = () => {
   const token = getAccessToken();
