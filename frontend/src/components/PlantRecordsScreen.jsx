@@ -284,7 +284,7 @@ export default function PlantRecordsScreen({
                 onClick={() => onNavigateToScan && onNavigateToScan({ targetPlant: selectedPlant })}
               >
                 <Camera size={18} />
-                <div style={{ textAlign: 'left' }}>
+                <div style={{ textAlign: 'left'}}>
                   <span className="btn-main-txt">Diagnostiquer par Scan IA</span>
                   <span className="btn-sub-txt">Vérifier l'état d'une feuille de cette culture</span>
                 </div>
