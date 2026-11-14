@@ -24,3 +24,10 @@ PROJECT_GUIDE.md
 *.njsproj
 *.sln
 *.sw?
+# Variables d'environnement et clés secrètes
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+

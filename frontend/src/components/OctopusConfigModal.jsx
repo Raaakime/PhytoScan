@@ -1,12 +1,27 @@
-import { useState } from 'react';
+import { useState,  useEffect } from 'react';
 import { Cpu, Check, AlertCircle, Save, RefreshCw } from 'lucide-react';
 import { getOctopusConfig, saveOctopusConfig } from '../services/octopusApi';
 import { apiRequest } from '../services/apiClient';
+
+
+
+
 
 export default function OctopusConfigModal({ isOpen, onClose, onConfigSaved }) {
   const [config, setConfig] = useState(getOctopusConfig());
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState(null);
+
+
+
+
+  useEffect(() => {
+      if (isOpen) {
+        setConfig(getOctopusConfig());
+        setTestResult(null);
+      }
+    }, [isOpen]);
+
 
   if (!isOpen) return null;
 
@@ -54,13 +69,13 @@ export default function OctopusConfigModal({ isOpen, onClose, onConfigSaved }) {
         <div className="modal-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Cpu color="#10b981" />
-            <h3 className="modal-title">Configuration Agent Octopus IA</h3>
+            <h3 className="modal-title">Configuration Agent PhytoScan IA</h3>
           </div>
           <button className="screen-app-btn-icon" onClick={onClose}>✕</button>
         </div>
 
         <p style={{ fontSize: '0.84rem', color: '#64748b' }}>
-          Connectez l'interface web directement à votre modèle d'IA entraîné avec Octopus pour le diagnostic en temps réel des maladies foliaires.
+          Connectez l'interface web directement à votre modèle d'IA entraîné avec deep learning EfficientNetB0 pour le diagnostic en temps réel des maladies des plantes.
         </p>
 
         <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
@@ -85,7 +100,7 @@ export default function OctopusConfigModal({ isOpen, onClose, onConfigSaved }) {
                   checked={!config.useMock} 
                   onChange={() => setConfig({ ...config, useMock: false })}
                 />
-                <strong>API Backend Octopus Live</strong>
+                <strong>API Backend PhytoScan Live</strong>
               </label>
             </div>
           </div>
@@ -93,7 +108,7 @@ export default function OctopusConfigModal({ isOpen, onClose, onConfigSaved }) {
           {!config.useMock && (
             <>
               <div className="form-group">
-                <label className="form-label">URL de l'API Octopus</label>
+                <label className="form-label">URL de l'API PhytoScan</label>
                 <input 
                   type="url" 
                   className="form-input" 
@@ -109,7 +124,7 @@ export default function OctopusConfigModal({ isOpen, onClose, onConfigSaved }) {
                 <input 
                   type="text" 
                   className="form-input" 
-                  placeholder="octopus-vision-v2"
+                  placeholder="phytoscan-vision-v1.0"
                   value={config.model}
                   onChange={(e) => setConfig({ ...config, model: e.target.value })}
                 />

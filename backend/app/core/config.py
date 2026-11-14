@@ -70,6 +70,17 @@ class Settings(BaseSettings):
     ELEVENLABS_VOICE_ID: str = ""
     ELEVENLABS_TTS_MODEL: str = "eleven_v4_turbo"
 
+    # --- Voix wolof hébergée chez nous (modèles ouverts, aucun coût d'API) ---
+    VOICE_WOLOF_ENABLED: bool = False
+    VOICE_WOLOF_STT_MODEL: str = "facebook/mms-1b-all"
+    VOICE_WOLOF_STT_LANG: str = "wol"        # adaptateur de langue MMS ; "" pour un modèle déjà spécialisé wolof
+    VOICE_WOLOF_TTS_MODEL: str = "bilalfaye/speecht5_tts-wolof"
+    VOICE_WOLOF_TTS_BACKEND: str = "speecht5"   # "speecht5" (défaut) ou "vits"
+    VOICE_WOLOF_TTS_VOCODER: str = "microsoft/speecht5_hifigan"
+    VOICE_WOLOF_DEVICE: str = "auto"         # "auto" | "cpu" | "cuda"
+    VOICE_WOLOF_MAX_SECONDS: int = 30
+    VOICE_FFMPEG_PATH: str = ""              # chemin complet de ffmpeg(.exe) si absent du Path (facultatif)
+
     # --- Images de comparaison (servies par le front dans /public/assets) ---
     COMPARISON_HEALTHY_IMG: str = "/assets/comparaison_saine.jpg"
     COMPARISON_INFECTED_IMG: str = "/assets/comparaison_malade.jpg"

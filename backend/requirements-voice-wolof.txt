@@ -1,0 +1,8 @@
+
+# Voix wolof hébergée (en plus de requirements.txt). ffmpeg doit aussi être installé sur le serveur.
+# Pour un serveur sans GPU, installez la version CPU de torch : https://pytorch.org/get-started/locally/
+torch
+transformers>=4.40
+safetensors
+numpy
+datasets   # une seule fois : récupère l'empreinte de voix de SpeechT5 (ensuite mise en cache)

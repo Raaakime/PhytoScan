@@ -16,6 +16,8 @@ class HistoryOut(CamelModel):
     type: str
     result: str
     notes: Optional[str] = None
+    analysis_id: Optional[str] = None   # -> h.analysisId côté front
+    image_url: Optional[str] = None     # -> h.imageUrl côté front (ex. "/media/xxx.jpg")
 
 
 class CareOut(CamelModel):

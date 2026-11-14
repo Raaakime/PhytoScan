@@ -1406,7 +1406,7 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 9px 20px;
+  padding: 8px 20px;
   border-radius: 24px;
   border: none;
   background: transparent;
@@ -1430,12 +1430,17 @@ body {
 }
 
 .web-alert-pill {
+  display: flex;
   background: #ef4444;
   color: white;
-  font-size: 0.68rem;
-  font-weight: 800;
-  padding: 2px 7px;
-  border-radius: 12px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 10px;
+}
+
+.alert-icon{
+  font-size: 1.2rem;
+  font-weight: bolder;
 }
 
 .web-navbar-actions {
@@ -1464,6 +1469,25 @@ body {
   color: #0f172a;
 }
 
+.web-btn-change-clt{
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  border-radius: 20px;
+  padding: 8px 16px;
+  font-size: 0.84rem;
+  font-weight: 900;
+  color: #065f46;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.web-btn-change-clt:hover {
+  background: #c2f5db;
+}
+
 .web-btn-octopus {
   display: flex;
   align-items: center;
@@ -1477,6 +1501,7 @@ body {
   color: #065f46;
   cursor: pointer;
   transition: all 0.2s ease;
+  
 }
 
 .web-btn-octopus:hover {
@@ -2146,7 +2171,8 @@ body {
    -------------------------------------------------------------------------- */
 .web-plants-grid {
   display: grid;
-  grid-template-columns: 380px 1fr;
+  grid-template-columns: minmax(380px, 340px) minmax(0, 1fr);
+  max-width: 100%;
   gap: 32px;
 }
 
@@ -2313,6 +2339,9 @@ body {
 .web-plant-main-dossier {
   display: flex;
   flex-direction: column;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
   gap: 24px;
 }
 
@@ -2339,6 +2368,17 @@ body {
 
 .plant-hero-web-info {
   flex: 1;
+}
+
+
+.timeline-image-container { margin-top: 10px; }
+.timeline-history-image {
+  display: block; width: 100%; max-width: 240px; aspect-ratio: 4 / 3;
+  object-fit: cover; border-radius: 10px; border: 1px solid #e2e8f0;
+}
+@media (max-width: 640px) {
+  .plant-hero-web-img { width: 96px; height: 96px; }
+  .timeline-history-image { max-width: 100%; }
 }
 
 .plant-display-title {
@@ -2443,6 +2483,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: 20px;
+
 }
 
 .web-tabs-header {
@@ -2450,6 +2491,7 @@ body {
   border-bottom: 2px solid #f1f5f9;
   gap: 8px;
   overflow-x: auto;
+   overflow-y: hidden;
 }
 
 .web-tab-nav-btn {
@@ -4124,13 +4166,14 @@ img, video, canvas {
     padding: 9px 14px;
   }
 
-  .web-tabs-header {
+  /* .web-tabs-header {
+   
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
     gap: 4px;
     padding-bottom: 2px;
-  }
+  } */
 
   .web-tabs-header::-webkit-scrollbar {
     display: none;
@@ -4394,11 +4437,7 @@ img, video, canvas {
     font-size: 0.84rem;
   }
 
-  .web-card {
-    padding: 14px;
-    border-radius: 14px;
-  }
-
+ 
   .meta-card-item {
     padding: 10px;
     gap: 10px;

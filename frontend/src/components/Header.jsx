@@ -1,15 +1,17 @@
 import { Leaf, Camera, FolderHeart, Mic, Cpu, ChevronLeft, LogIn, LogOut, User } from 'lucide-react';
+import { IoMdNotificationsOutline } from "react-icons/io";
 
 export default function Header({ 
   activeScreen, 
   onNavigate, 
   canGoBack, 
   onGoBack, 
-  onOpenOctopusConfig, 
+  onOpenOctopusConfig = () => {}, 
   isOctopusConnected,
   alertCount = 0,
   currentUser = null,
   onLogout
+  
 }) {
   return (
     <header className="web-navbar">
@@ -46,19 +48,18 @@ export default function Header({
             onClick={() => onNavigate('plants')}
           >
             <FolderHeart size={18} />
-            <span>Dossier des Cultures</span>
+            <span>Dossier Cultures</span>
           </button>
-
           <button 
             type="button" 
             className={`web-nav-item ${activeScreen === 'assistant' ? 'active' : ''}`}
             onClick={() => onNavigate('assistant')}
           >
             <Mic size={18} />
-            <span>Assistant Vocal & Alertes</span>
+            <span>Assistant Vocal</span>
             {alertCount > 0 && (
               <span className="web-alert-pill">
-                {alertCount} alertes
+               <IoMdNotificationsOutline className='alert-icon'/> {alertCount} 
               </span>
             )}
           </button>
@@ -78,16 +79,21 @@ export default function Header({
             </button>
           )}
 
-          <button 
-            type="button" 
-            className="web-btn-octopus"
-            onClick={onOpenOctopusConfig}
-            title="Paramètres de l'Agent Octopus IA"
-          >
-            <span className="web-status-pulse" />
-            <Cpu size={16} />
-            <span>Octopus IA : {isOctopusConnected ? "Connecté" : "Simulation"}</span>
-          </button>
+        <div>
+                {!isOctopusConnected && (
+                <button 
+                  type="button" 
+                  className="web-btn-octopus"
+                  onClick={onOpenOctopusConfig}
+                  title="Paramètres de l'Agent PhytoScan IA"
+                >
+                  <span className="web-status-pulse" />
+                  <Cpu size={16} />
+                  <span>PhytoScan IA : Simulation</span>
+                </button>
+              )}
+
+        </div>
 
           {/* Section Authentification Utilisateur */}
           {currentUser ? (

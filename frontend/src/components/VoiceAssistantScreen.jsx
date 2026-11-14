@@ -1,8 +1,13 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
+  Mic, 
+  MicOff, 
   Send, 
   Volume2, 
+  VolumeX, 
   Bell, 
+  ChevronRight, 
+  Sparkles, 
   Leaf,
   Camera,
   FolderHeart,
@@ -10,67 +15,157 @@ import {
   ShieldAlert,
   AlertTriangle,
   Cpu,
-  CheckCircle2
+  CheckCircle2,
+  HelpCircle
 } from 'lucide-react';
-import VoiceAssistant from './VoiceAssistant';
 import { 
   ASSISTANT_LANGUAGES, 
   INITIAL_CHAT_MESSAGES, 
-  INITIAL_PLANTS,
   SAMPLE_QUESTIONS 
 } from '../data/mockData';
-import { askOctopusAssistant } from '../services/octopusApi';
+import { askOctopusAssistant, sendWolofVoice, getWolofVoiceStatus, audioSrcFromResponse } from '../services/octopusApi';
+import { useBrowserVoice } from '../hooks/useBrowserVoice';
+import { useWolofRecorder } from '../hooks/useWolofRecorder';
+  import WeatherRiskCard from '../components/WeatherRiskCard';
+  import { useClimateRisks } from '../hooks/useClimateRisks';
 
-export default function VoiceAssistantScreen({ 
-  plants = INITIAL_PLANTS,
-  initialQuery = '', 
+export default function VoiceAssistantScreen({
+  plants = [],
+  alerts = null,
+  initialQuery = '',
   onClearInitialQuery,
-  onNavigateToScan, 
-  onNavigateToPlants, 
-  onOpenOctopusConfig 
+  onNavigateToScan,
+  onNavigateToPlants,
+  onOpenOctopusConfig
+  
 }) {
   const [currentLang, setCurrentLang] = useState('fr'); // 'fr' | 'wo' | 'en'
   const [messages, setMessages] = useState(INITIAL_CHAT_MESSAGES.fr);
   const [inputText, setInputText] = useState('');
-  const [isSpeaking, setIsSpeaking] = useState(false);
-  const [waveformActive, setWaveformActive] = useState(false);
+  const [isThinking, setIsThinking] = useState(false);
+  const [voiceNotice, setVoiceNotice] = useState('');
+  const climate = useClimateRisks(plants);
+  
+
+  // Voix gratuite du navigateur (fr / en). Le wolof n'est pas pris en charge : saisie écrite uniquement.
+  const {
+    listening: isListening, speaking: isSpeaking,
+    start: startListening, stop: stopListening, speak, stopSpeaking,
+    canListen, canSpeak
+  } = useBrowserVoice({
+    language: currentLang,
+    onFinalText: (text) => sendMessage(text),
+    onError: setVoiceNotice
+  });
+
+  // Wolof : le navigateur ne le comprend pas, on enregistre la voix et le serveur la traite (modèles hébergés chez nous)
+  const [wolofVoice, setWolofVoice] = useState({ enabled: false });
+  const [voiceSessionId, setVoiceSessionId] = useState(null);
+  const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+  const audioPlayerRef = useRef(null);
+  
+
+  const nowLabel = () => new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+  const stopAudio = () => {
+    if (audioPlayerRef.current) {
+      audioPlayerRef.current.pause();
+      audioPlayerRef.current = null;
+    }
+    setIsPlayingAudio(false);
+  };
+
+  const playAudio = (src) => {
+    if (!src) return;
+    stopAudio();
+    const player = new Audio(src);
+    audioPlayerRef.current = player;
+    player.onplay = () => setIsPlayingAudio(true);
+    player.onended = () => setIsPlayingAudio(false);
+    player.onerror = () => setIsPlayingAudio(false);
+    player.play().catch(() => setIsPlayingAudio(false));
+  };
+
+  const sendWolofAudio = async (blob) => {
+    setIsThinking(true);
+    try {
+      const result = await sendWolofVoice(blob, voiceSessionId);
+      if (result.sessionId) setVoiceSessionId(result.sessionId);
+      const audioSrc = audioSrcFromResponse(result);
+      setMessages(prev => [
+        ...prev,
+        { id: `u-${Date.now()}`, sender: 'user', text: result.transcript, timestamp: nowLabel() },
+        { id: `b-${Date.now()}`, sender: 'bot', text: result.text, timestamp: result.timestamp || nowLabel(),
+          hasAudio: Boolean(audioSrc), audioSrc }
+      ]);
+      if (audioSrc) playAudio(audioSrc);
+      else if (result.audioError) setVoiceNotice(result.audioError);
+    } catch (error) {
+      setMessages(prev => [
+        ...prev,
+        { id: `e-${Date.now()}`, sender: 'bot', timestamp: nowLabel(), hasAudio: false,
+          text: error?.message || "Désolé, la voix en wolof est momentanément indisponible. Écrivez votre question." }
+      ]);
+    } finally {
+      setIsThinking(false);
+    }
+  };
+
+  const {
+    recording: isRecordingWo, start: startRecording, stop: stopRecording, canRecord: canRecordWo
+  } = useWolofRecorder({ onRecorded: sendWolofAudio, onError: setVoiceNotice });
+
+  useEffect(() => {
+    getWolofVoiceStatus().then(setWolofVoice);
+  }, []);
+
+  const isWolof = currentLang === 'wo';
+  const micAvailable = isWolof ? (wolofVoice.enabled && canRecordWo) : canListen;
+  const micActive = isWolof ? isRecordingWo : isListening;
+  const waveformActive = isListening || isSpeaking || isThinking || isRecordingWo || isPlayingAudio;
 
   const chatBottomRef = useRef(null);
 
-  // Plantes ayant une alerte active ou un état non sain ('malade' ou 'surveiller')
-  const activePlantAlerts = (plants || []).filter(
-    (plant) => plant.status !== 'saine' || Boolean(plant.alert)
-  );
-
-  const speakText = useCallback((text) => {
-    if (!('speechSynthesis' in window)) {
-      setIsSpeaking(false);
-      setWaveformActive(false);
-      return;
-    }
-    window.speechSynthesis.cancel();
-
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = currentLang === 'en' ? 'en-US' : 'fr-FR';
-    utterance.rate = 0.95;
-
-    utterance.onstart = () => {
-      setIsSpeaking(true);
-      setWaveformActive(true);
-    };
-    utterance.onend = () => {
-      setIsSpeaking(false);
-      setWaveformActive(false);
-    };
-    utterance.onerror = () => {
-      setIsSpeaking(false);
-      setWaveformActive(false);
-    };
-
-    window.speechSynthesis.speak(utterance);
+  useEffect(() => {
+    setMessages(INITIAL_CHAT_MESSAGES[currentLang] || INITIAL_CHAT_MESSAGES.fr);
+    setVoiceNotice('');
+    stopSpeaking();
+    stopAudio();
   }, [currentLang]);
 
-  const sendMessage = useCallback(async (textToSend) => {
+  useEffect(() => {
+    if (initialQuery && initialQuery.trim()) {
+      sendMessage(initialQuery);
+      if (onClearInitialQuery) onClearInitialQuery();
+    }
+  }, [initialQuery]);
+
+  useEffect(() => {
+    chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, waveformActive]);
+
+  const speakText = (text) => speak(text);
+
+  const toggleListening = () => {
+    setVoiceNotice('');
+    if (isWolof) {
+      if (isRecordingWo) {
+        stopRecording();
+      } else {
+        stopAudio();
+        startRecording();
+      }
+      return;
+    }
+    if (isListening) {
+      stopListening();
+      return;
+    }
+    stopSpeaking();
+    startListening();
+  };
+
+  const sendMessage = async (textToSend) => {
     const query = textToSend || inputText;
     if (!query.trim()) return;
 
@@ -83,10 +178,14 @@ export default function VoiceAssistantScreen({
 
     setMessages(prev => [...prev, userMsg]);
     setInputText('');
-    setWaveformActive(true);
+    setIsThinking(true);
+
+ 
 
     try {
-      const botReply = await askOctopusAssistant(query, currentLang, { plants });
+ 
+
+      const botReply = await askOctopusAssistant(query, currentLang, climate.context);
       setMessages(prev => [
         ...prev,
         {
@@ -94,48 +193,28 @@ export default function VoiceAssistantScreen({
           sender: 'bot',
           text: botReply.text,
           timestamp: botReply.timestamp,
-          hasAudio: true
+          hasAudio: canSpeak
         }
       ]);
       speakText(botReply.text);
     } catch (error) {
-      setWaveformActive(false);
       setMessages(prev => [
         ...prev,
         {
           id: `e-${Date.now()}`,
           sender: 'bot',
-          text: error.message || 'Impossible de joindre le serveur. Vérifiez la connexion puis réessayez.',
+          text: error?.message || "Désolé, l'assistant est momentanément indisponible. Réessayez dans un instant.",
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           hasAudio: false
         }
       ]);
+    } finally {
+      setIsThinking(false);
     }
-  }, [inputText, currentLang, plants, speakText]);
+  };
 
-  useEffect(() => {
-    setMessages(INITIAL_CHAT_MESSAGES[currentLang] || INITIAL_CHAT_MESSAGES.fr);
-  }, [currentLang]);
-
-  useEffect(() => {
-    if (initialQuery && initialQuery.trim()) {
-      sendMessage(initialQuery);
-      if (onClearInitialQuery) onClearInitialQuery();
-    }
-  }, [initialQuery, sendMessage, onClearInitialQuery]);
-
-  useEffect(() => {
-    chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, waveformActive]);
-
-  // Nettoyage de la synthèse vocale du navigateur.
-  useEffect(() => {
-    return () => {
-      if ('speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
-      }
-    };
-  }, []);
+  // Nombre d'alertes affiché dans le badge (2 = valeur historique des données statiques)
+  const alertTotal = alerts ? alerts.length : 2;
 
   return (
     <div className="web-page-container">
@@ -151,7 +230,7 @@ export default function VoiceAssistantScreen({
             Assistant Agronome Intelligent & Tour de Contrôle
           </h1>
           <p className="web-page-subtitle">
-            Échangez par la voix ou par écrit sur vos cultures. Le mode vocal est disponible en français et en anglais ; le wolof reste accessible par écrit.
+            Échangez par la voix ou par écrit avec l'IA experte en pathologie végétale. Disponible en Français, Wolof et Anglais avec synthèse vocale.
           </p>
         </div>
 
@@ -187,13 +266,14 @@ export default function VoiceAssistantScreen({
               </div>
               <div>
                 <h3 className="chat-bot-name">PhytoScan Agronome IA</h3>
-                <span className="chat-bot-status">● Assistant agronomique à réponses guidées</span>
+                <span className="chat-bot-status">● Modèle connecté (PhytoScan Knowledge Base)</span>
               </div>
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <span className="audio-voice-badge">
-                <Volume2 size={14} /> Voix Push-to-Talk
+                {canSpeak ? <Volume2 size={14} /> : <VolumeX size={14} />}
+                {canSpeak ? ' Voix active' : ' Lecture vocale indisponible'}
               </span>
             </div>
           </div>
@@ -221,7 +301,7 @@ export default function VoiceAssistantScreen({
                         <button 
                           type="button" 
                           className="web-btn-listen"
-                          onClick={() => speakText(msg.text)}
+                          onClick={() => (msg.audioSrc ? playAudio(msg.audioSrc) : speakText(msg.text))}
                         >
                           <Volume2 size={13} />
                           <span>Réécouter la réponse</span>
@@ -235,26 +315,10 @@ export default function VoiceAssistantScreen({
             <div ref={chatBottomRef} />
           </div>
 
-          <VoiceAssistant
-            language={currentLang}
-            onVoiceResult={(result) => {
-              const timestamp = result.timestamp || new Date().toLocaleTimeString([], {
-                hour: '2-digit',
-                minute: '2-digit'
-              });
-              setMessages(previous => [
-                ...previous,
-                { id: `u-${Date.now()}`, sender: 'user', text: result.transcript, timestamp },
-                { id: `b-${Date.now() + 1}`, sender: 'bot', text: result.text, timestamp, hasAudio: false }
-              ]);
-            }}
-            onNewConversation={() => setMessages(INITIAL_CHAT_MESSAGES[currentLang] || INITIAL_CHAT_MESSAGES.fr)}
-          />
-
-          {/* Visualisation de la synthèse vocale du navigateur pour les réponses écrites */}
-          <div className={`web-waveform-box ${waveformActive || isSpeaking ? 'active' : ''}`}>
+          {/* Visualisation Waveform Audio */}
+          <div className={`web-waveform-box ${waveformActive ? 'active' : ''}`}>
             <span className="waveform-info-txt">
-              {isSpeaking ? "Lecture de la réponse en cours..." : "Synthèse vocale du navigateur"}
+              {micActive ? (isWolof ? "Enregistrement en cours... appuyez de nouveau pour envoyer" : "Écoute de votre voix en cours...") : (isSpeaking || isPlayingAudio) ? "Lecture de la réponse en cours..." : isThinking ? (isWolof ? "Traitement de votre voix en cours (cela peut prendre quelques secondes)..." : "Réflexion en cours...") : micAvailable ? "Microphone prêt" : "Microphone indisponible"}
             </span>
             <div className="web-waveform-bars">
               <div className="web-wave-bar" />
@@ -269,9 +333,29 @@ export default function VoiceAssistantScreen({
             </div>
           </div>
 
+          {(voiceNotice || !micAvailable) && (
+            <p role="status" style={{ margin: '8px 16px 0', fontSize: '0.82rem', color: '#b45309' }}>
+              {voiceNotice || (isWolof
+                ? (wolofVoice.enabled
+                    ? "L'enregistrement audio n'est pas disponible sur ce navigateur : écrivez votre question ci-dessous."
+                    : "La voix en wolof n'est pas activée sur ce serveur : écrivez votre question ci-dessous.")
+                : "La reconnaissance vocale n'est pas disponible sur ce navigateur (essayez Chrome ou Edge) : utilisez la saisie écrite.")}
+            </p>
+          )}
+
           {/* Barre d'interaction micro + texte */}
           <div className="web-chat-input-section">
             <div className="web-input-bar">
+              <button 
+                type="button" 
+                className={`web-btn-mic-toggle ${micActive ? 'listening' : ''}`}
+                onClick={toggleListening}
+                disabled={!micAvailable || (isThinking && !micActive)}
+                title={!micAvailable ? "Voix indisponible pour cette langue ou ce navigateur" : micActive ? (isWolof ? "Arrêter et envoyer" : "Arrêter l'écoute") : "Poser une question vocale"}
+              >
+                {micActive ? <MicOff size={22} /> : <Mic size={22} />}
+              </button>
+
               <form 
                 onSubmit={(e) => {
                   e.preventDefault();
@@ -318,106 +402,111 @@ export default function VoiceAssistantScreen({
         </div>
 
         {/* =========================================================
-            COLONNE DROITE : TOUR DE CONTRÔLE DES ALERTES DYNAMIQUES
+            COLONNE DROITE : TOUR DE CONTRÔLE DES ALERTES
             ========================================================= */}
         <div className="web-assistant-sidebar">
           {/* Centre des alertes phytosanitaires */}
           <div className="web-card web-alerts-card">
             <div className="alerts-card-header">
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Bell size={20} color={activePlantAlerts.length > 0 ? '#e11d48' : '#10b981'} />
+                <Bell size={20} color="#e11d48" />
                 <h3 style={{ margin: 0 }}>Alertes Phytosanitaires en direct</h3>
               </div>
-              <span
-                className="urgent-badge-pill"
-                style={
-                  activePlantAlerts.length === 0
-                    ? { background: '#dcfce7', color: '#15803d' }
-                    : undefined
-                }
-              >
-                {activePlantAlerts.length} alerte{activePlantAlerts.length > 1 ? 's' : ''} active{activePlantAlerts.length > 1 ? 's' : ''}
-              </span>
+              <span className="urgent-badge-pill">{alertTotal} {alertTotal > 1 ? 'alertes actives' : 'alerte active'}</span>
             </div>
 
-            <div className="alerts-list">
-              {activePlantAlerts.length === 0 ? (
-                <div
-                  className="web-alert-item"
-                  style={{
-                    background: '#f0fdf4',
-                    border: '1px solid #bbf7d0',
-                    color: '#166534'
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <CheckCircle2 size={18} color="#10b981" />
-                    <strong>Aucune alerte sanitaire sur vos parcelles</strong>
-                  </div>
-                  <p className="alert-item-desc" style={{ color: '#15803d' }}>
-                    Toutes les cultures enregistrées dans votre carnet sont actuellement saines.
-                  </p>
-                </div>
-              ) : (
-                activePlantAlerts.map((plant) => {
-                  const isSevere = plant.status === 'malade';
-                  return (
-                    <div
-                      key={plant.id}
-                      className={`web-alert-item ${isSevere ? 'danger' : 'warning'}`}
-                    >
+                       <div className="alerts-list">
+              {alerts ? (
+                <>
+                  {alerts.length === 0 && (
+                    <p className="alert-item-desc">Aucune alerte active : toutes vos cultures sont saines.</p>
+                  )}
+                  {alerts.map((a) => (
+                    <div key={a.id} className={`web-alert-item ${a.level}`}>
                       <div className="alert-item-top">
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          {isSevere ? (
-                            <ShieldAlert size={16} color="#e11d48" />
-                          ) : (
-                            <AlertTriangle size={16} color="#d97706" />
-                          )}
-                          <strong>
-                            {plant.name} ({plant.species.split(' (')[0]}) — {plant.plot}
-                          </strong>
+                          {a.level === 'danger'
+                            ? <ShieldAlert size={16} color="#e11d48" />
+                            : <AlertTriangle size={16} color="#d97706" />}
+                          <strong>{a.title}</strong>
                         </div>
-                        <span className="alert-time">{plant.lastObservation}</span>
+                        <span className="alert-time">{a.date}</span>
                       </div>
-                      <p className="alert-item-desc">
-                        {plant.alert || plant.details?.notes || `Statut actuel : ${plant.statusLabel} (Score de santé : ${plant.healthScore}/100).`}
-                      </p>
+                      <p className="alert-item-desc">{a.description}</p>
                       <div className="alert-item-actions">
-                        <button 
-                          type="button" 
+                        <button
+                          type="button"
                           className="web-alert-btn-action primary"
-                          onClick={() => onNavigateToPlants && onNavigateToPlants({ plantId: plant.id })}
+                          onClick={() => onNavigateToPlants && onNavigateToPlants({ plantId: a.plant.id })}
                         >
                           <FolderHeart size={14} />
                           <span>Consulter le dossier de la plante</span>
                         </button>
-                        <button 
-                          type="button" 
+                        <button
+                          type="button"
                           className="web-alert-btn-action secondary"
-                          onClick={() => onNavigateToScan && onNavigateToScan({ targetPlant: plant })}
+                          onClick={() => onNavigateToScan && onNavigateToScan({
+                            targetPlant: {
+                              id: a.plant.id,
+                              name: a.plant.name,
+                              species: (a.plant.species || '').split('(')[0].trim(),
+                              plot: (a.plant.plot || '').split(' - ')[0].trim()
+                            }
+                          })}
                         >
                           <Camera size={14} />
                           <span>Faire un scan de contrôle</span>
                         </button>
                       </div>
                     </div>
-                  );
-                })
+                  ))}
+                </>
+              ) : (
+                <>
+                  {/* Alerte 1 : Plante 2 / Oïdium (exemple statique) */}
+                  <div className="web-alert-item danger">
+                    <div className="alert-item-top">
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <ShieldAlert size={16} color="#e11d48" />
+                        <strong>Plante 2 (Aubergine) — Parcelle B1</strong>
+                      </div>
+                      <span className="alert-time">Aujourd'hui, 10:24</span>
+                    </div>
+                    <p className="alert-item-desc">
+                      Présence d'oïdium sur la canopée basse. Risque élevé de propagation sous l'effet de l'humidité relative (82%). Traitement fongicide recommandé sous 24h.
+                    </p>
+                    <div className="alert-item-actions">
+                      <button
+                        type="button"
+                        className="web-alert-btn-action primary"
+                        onClick={() => onNavigateToPlants && onNavigateToPlants({ plantId: 'P-002' })}
+                      >
+                        <FolderHeart size={14} />
+                        <span>Consulter le dossier de la plante</span>
+                      </button>
+                      <button
+                        type="button"
+                        className="web-alert-btn-action secondary"
+                        onClick={() => onNavigateToScan && onNavigateToScan({ targetPlant: { id: 'P-002', name: 'Plante 2', species: 'Aubergine', plot: 'Parcelle B1' } })}
+                      >
+                        <Camera size={14} />
+                        <span>Faire un scan de contrôle</span>
+                      </button>
+                    </div>
+                  </div>
+                </>
               )}
 
-              {/* Bulletin de vigilance agro-météorologique */}
-              <div className="web-alert-item warning">
-                <div className="alert-item-top">
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <AlertTriangle size={16} color="#d97706" />
-                    <strong>Vigilance Météo & Risque Fongique</strong>
-                  </div>
-                  <span className="alert-time">Bulletin préventif</span>
-                </div>
-                <p className="alert-item-desc">
-                  Hygrométrie matinale élevée prévue sur le secteur. Aérez les serres et arrosez directement au pied pour éviter l'eau stagnante sur le feuillage.
-                </p>
-              </div>
+              {/* Météo réelle (Open-Meteo) : affichée dans tous les cas */}
+              <WeatherRiskCard
+                status={climate.status}
+                weather={climate.weather}
+                risks={climate.risks}
+                tips={climate.tips}
+                uncovered={climate.uncovered}
+                error={climate.error}
+                onRefresh={climate.refresh}
+              />
             </div>
           </div>
 
@@ -464,7 +553,7 @@ export default function VoiceAssistantScreen({
                   <Cpu size={18} />
                 </div>
                 <div>
-                  <strong>Agent IA Octopus</strong>
+                  <strong>Agent IA PhytoScan</strong>
                   <span>Régler l'adresse API et le modèle</span>
                 </div>
                 <ArrowRight size={15} style={{ marginLeft: 'auto', color: '#94a3b8' }} />
