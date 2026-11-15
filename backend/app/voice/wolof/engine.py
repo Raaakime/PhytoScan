@@ -2,7 +2,7 @@ import io
 import os
 import httpx
 import numpy as np
-import soundfile as sf  # ou wave standard pour lire les bytes
+
 
 # L'URL de votre espace gratuit Hugging Face (ex: https://hf.space)
 HF_SPACE_URL = os.getenv(
