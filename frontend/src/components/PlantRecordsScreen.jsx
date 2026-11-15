@@ -47,11 +47,7 @@ const getPlantImage = (plant) => {
         ? imagePath
         : `${API_BASE_URL}${imagePath.startsWith("/") ? "" : "/"}${imagePath}`;
 
-  console.log("IMAGE PLANTE :", {
-    id: plant?.id,
-    imagePath,
-    finalUrl
-  });
+
 
   return finalUrl;
 };

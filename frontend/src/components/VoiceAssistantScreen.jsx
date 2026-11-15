@@ -281,12 +281,12 @@ export default function VoiceAssistantScreen({
           {/* Flux de discussion défilant */}
           <div className="web-chat-feed">
             {messages.map((msg) => (
-              msg.sender === 'user' ? (
+              msg.sender === 'user' ?    (
                 <div key={msg.id} className="web-chat-bubble-user-row">
                   <div className="web-chat-bubble-user">
                     <p>{msg.text}</p>
                     <span className="bubble-timestamp">{msg.timestamp}</span>
-                  </div>
+                  </div> 
                 </div>
               ) : (
                 <div key={msg.id} className="web-chat-bubble-bot-row">
@@ -306,12 +306,14 @@ export default function VoiceAssistantScreen({
                           <Volume2 size={13} />
                           <span>Réécouter la réponse</span>
                         </button>
+                        
                       )}
                     </div>
                   </div>
                 </div>
               )
             ))}
+            
             <div ref={chatBottomRef} />
           </div>
 
@@ -545,8 +547,9 @@ export default function VoiceAssistantScreen({
               </button>
 
               <button 
+              disabled={true}
                 type="button" 
-                className="web-shortcut-item"
+                className="web-shortcut-item disabled-btn"
                 onClick={onOpenOctopusConfig}
               >
                 <div className="shortcut-icon purple">
