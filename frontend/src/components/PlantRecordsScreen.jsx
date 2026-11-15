@@ -26,7 +26,7 @@ import { useClimateRisks } from '../hooks/useClimateRisks';
 
 
 
-const API_BASE_URL = "https://onrender.com";
+const API_BASE_URL = "'https://phytoscan-sn.onrender.com'";
 
 const getPlantImage = (plant) => {
   const imagePath =

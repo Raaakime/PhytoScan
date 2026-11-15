@@ -2,7 +2,7 @@
 import { apiRequest } from './apiClient';
 
 const DEFAULT_CONFIG = {
-  baseUrl: import.meta.env.VITE_API_BASE_URL || "https://onrender.com",
+  baseUrl: import.meta.env.VITE_API_BASE_URL || "https://phytoscan-sn.onrender.com/phytoscan/v1",
   model: "deep learning EfficientNetB0",
   useMock: false
 };

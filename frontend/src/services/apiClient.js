@@ -1,4 +1,4 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "https://onrender.com";
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "https://phytoscan-sn.onrender.com/phytoscan/v1";
 const CONFIG_STORAGE_KEY = 'phytoscan_octopus_config';
 const ACCESS_TOKEN_KEY = 'phytoscan_access_token';
 const REFRESH_TOKEN_KEY = 'phytoscan_refresh_token';
