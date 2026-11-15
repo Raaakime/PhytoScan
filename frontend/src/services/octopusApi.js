@@ -515,7 +515,8 @@ if (
   };
 }
 
-const VOICE_API_BASE = import.meta.env.VITE_API_BASE_URL || '';
+const VOICE_API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://phytoscan-sn.onrender.com/phytoscan/v1';
+;
 
 /**
  * Envoie la question vocale au back (Push-to-Talk) : POST /voice/chat

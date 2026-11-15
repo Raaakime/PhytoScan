@@ -112,7 +112,7 @@ export default function OctopusConfigModal({ isOpen, onClose, onConfigSaved }) {
                 <input 
                   type="url" 
                   className="form-input" 
-                  placeholder="'https://onrender.com'"
+                  placeholder="https://onrender.com"
                   value={config.baseUrl}
                   onChange={(e) => setConfig({ ...config, baseUrl: e.target.value })}
                   required={!config.useMock}
