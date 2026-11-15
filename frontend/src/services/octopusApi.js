@@ -2,7 +2,7 @@
 import { apiRequest } from './apiClient';
 
 const DEFAULT_CONFIG = {
-  baseUrl: import.meta.env.VITE_API_BASE_URL || "http://localhost:8000/phytoscan/v1",
+  baseUrl: import.meta.env.VITE_API_BASE_URL || "https://onrender.com",
   model: "deep learning EfficientNetB0",
   useMock: false
 };
@@ -515,7 +515,7 @@ if (
   };
 }
 
-const VOICE_API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/phytoscan/v1';
+const VOICE_API_BASE = import.meta.env.VITE_API_BASE_URL || '';
 
 /**
  * Envoie la question vocale au back (Push-to-Talk) : POST /voice/chat
