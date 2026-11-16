@@ -1,6 +1,6 @@
 """Logique métier des plantes et de leur carnet de santé."""
 import re
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import List, Optional, Union
 
 from sqlalchemy import select
@@ -65,7 +65,9 @@ def serialize_plant(plant: Plant, lang: str) -> PlantOut:
         last_observation=format_date(plant.last_observation, lang),
         plot=plant.plot or "", water_schedule=plant.water_schedule or "", image=plant.image or "",
         health_score=plant.health_score, alert=plant.alert, details=details,
-        history=[HistoryOut(id=h.id, date=format_date(h.date, lang), type=h.type, result=h.result, notes=h.notes or "")
+        history=[HistoryOut(id=h.id, date=format_date(h.date, lang), type=h.type, result=h.result, notes=h.notes or "",
+                              analysis_id=h.analysis_id,
+                              image_url=f"/media/{h.image_path}" if h.image_path else None)
                  for h in plant.history],
         care=[CareOut(id=c.id, task=c.task, frequency=c.frequency or "", status=c.status or "") for c in plant.care],
         observations=[ObservationOut(id=o.id, date=format_date(o.date, lang), author=o.author, text=o.text)
@@ -172,7 +174,8 @@ def apply_scan_to_plant(db: Session, plant: Plant, scan: Scan, disease: Disease,
     today = scan.created_at.date()
     db.add(PlantHistory(plant_id=plant.id, date=today, type="Scan IA",
                         result=f"{t.name} ({scan.confidence}%)",
-                        notes=(t.remedies[0] if t.remedies else t.description)))
+                        notes=(t.remedies[0] if t.remedies else t.description),
+                        analysis_id=scan.analysis_id, image_path=scan.image_path))
     plant.last_observation = today
     _apply_disease_state(plant, disease, lang, scan.confidence)
     scan.plant_id = plant.id
@@ -194,7 +197,23 @@ def save_diagnostic(db: Session, plant: Plant, data: DiagnosticSaveRequest, lang
         remedies = disease.get_translation(lang).remedies
         notes = remedies[0] if remedies else None
         _apply_disease_state(plant, disease, lang, confidence)
-    db.add(PlantHistory(plant_id=plant.id, date=when, type="Scan IA", result=result, notes=notes))
+    # Si le front envoie analysisId, on retrouve le scan (même propriétaire) pour garder sa photo
+    scan = None
+    if data.analysis_id:
+        scan = db.scalar(select(Scan).where(Scan.analysis_id == data.analysis_id,
+                                            Scan.user_id == plant.owner_id))
+    # Repli si le front n'envoie pas analysisId : dernier scan récent (30 min), non rattaché, même maladie
+    if scan is None and disease is not None:
+        scan = db.scalar(
+            select(Scan).where(Scan.user_id == plant.owner_id, Scan.plant_id.is_(None),
+                               Scan.disease_id == disease.id,
+                               Scan.created_at >= datetime.utcnow() - timedelta(minutes=30))
+            .order_by(Scan.created_at.desc(), Scan.id.desc()))
+    if scan is not None:
+        scan.plant_id = plant.id
+    db.add(PlantHistory(plant_id=plant.id, date=when, type="Scan IA", result=result, notes=notes,
+                        analysis_id=scan.analysis_id if scan else None,
+                        image_path=scan.image_path if scan else None))
     plant.last_observation = when
     db.commit()
     db.refresh(plant)

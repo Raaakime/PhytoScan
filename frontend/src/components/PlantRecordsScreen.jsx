@@ -14,16 +14,64 @@ import {
   Droplets,
   Thermometer,
   MapPin,
-  TrendingUp
+  TrendingUp,
+  Edit3,
+  Trash2
 } from 'lucide-react';
 import { INITIAL_PLANTS } from '../data/mockData';
+import { ClimateAgronomyPanel, ClimateHistoryHint, ClimateCarePanel } from '../components/ClimatePanels';
+import { useClimateRisks } from '../hooks/useClimateRisks';
+
+
+
+
+
+const API_BASE_URL = "https://phytoscan-sn.onrender.com";
+
+const getPlantImage = (plant) => {
+  const imagePath =
+    plant?.image_url ||
+    plant?.imageUrl ||
+    plant?.image ||
+    "";
+
+  const finalUrl =
+    !imagePath ||
+    ["string", "null", "undefined"].includes(
+      String(imagePath).trim().toLowerCase()
+    )
+      ? "/assets/plante_1.jpg"
+      : imagePath.startsWith("http://") ||
+        imagePath.startsWith("https://") ||
+        imagePath.startsWith("/assets/")
+        ? imagePath
+        : `${API_BASE_URL}${imagePath.startsWith("/") ? "" : "/"}${imagePath}`;
+
+
+
+  return finalUrl;
+};
+
+
+const getLatestDiagnosticImage = (plant) => {
+  const latestScan = plant?.history?.find(
+    (h) => h.type === "Scan IA" && h.imageUrl
+  );
+
+  return latestScan
+    ? getPlantImage({ imageUrl: latestScan.imageUrl })
+    : getPlantImage(plant);
+};
+
 
 export default function PlantRecordsScreen({ 
   plants = INITIAL_PLANTS, 
   onCreatePlant,
   initialPlantId = 'P-001',
   onNavigateToScan, 
-  onNavigateToAssistant 
+  onNavigateToAssistant,
+  onUpdatePlant,
+  onDeletePlant
 }) {
   const [plantList, setPlantList] = useState(plants);
   const [selectedPlantId, setSelectedPlantId] = useState(initialPlantId || 'P-001');
@@ -32,12 +80,30 @@ export default function PlantRecordsScreen({
   const [showAddModal, setShowAddModal] = useState(false);
   const [isSavingPlant, setIsSavingPlant] = useState(false);
   const [saveError, setSaveError] = useState('');
+  const [airHumidity, setAirHumidity] = useState('');
+
+  //Afficher les données, update et delete
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editForm, setEditForm] = useState({ name: '', species: '', variety: '', plot: '' });
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Formulaire d'ajout
   const [newPlantName, setNewPlantName] = useState('');
   const [newPlantSpecies, setNewPlantSpecies] = useState('Tomate (Solanum lycopersicum)');
   const [newPlantVariety, setNewPlantVariety] = useState('Roma VF');
   const [newPlantPlot, setNewPlantPlot] = useState('Parcelle C2');
+  const { weather } = useClimateRisks();
+
+
+
+
+
+
+
+  useEffect(() => {
+  if (weather && airHumidity === '') setAirHumidity(String(Math.round(weather.humidity)));
+}, [weather]);
+
 
   useEffect(() => {
     if (initialPlantId) {
@@ -52,6 +118,56 @@ export default function PlantRecordsScreen({
   }, [plants]);
 
   const selectedPlant = plantList.find(p => p.id === selectedPlantId) || plantList[0] || null;
+
+    // Ouvrir le formulaire pré-rempli avec la plante sélectionnée
+const openEditModal = (plant) => {
+  setEditForm({
+    name: plant.name || '',
+    species: plant.species || '',
+    variety: plant.variety || '',
+    plot: plant.plot || '',
+  });
+  setShowEditModal(true);
+};
+
+  // Valider la mise à jour
+const handleEditSubmit = async (e) => {
+  e.preventDefault();
+  if (!selectedPlant || !editForm.name.trim()) return;
+  setIsSavingPlant(true);
+  try {
+    if (onUpdatePlant) {
+      const updated = await onUpdatePlant(selectedPlant.id, editForm);
+      setPlantList(prev => prev.map(p => (p.id === updated.id ? updated : p)));
+    } else {
+      // Fallback mode simulation locale
+      setPlantList(prev =>
+        prev.map(p => (p.id === selectedPlant.id ? { ...p, ...editForm } : p))
+      );
+    }
+    setShowEditModal(false);
+  } finally {
+    setIsSavingPlant(false);
+  }
+};
+
+// Supprimer avec confirmation
+const handleDeleteClick = async (plant) => {
+  if (!window.confirm(`Voulez-vous vraiment supprimer "${plant.name}" (${plant.id}) ?`)) {
+    return;
+  }
+  setIsDeleting(true);
+  try {
+    if (onDeletePlant) {
+      await onDeletePlant(plant.id);
+    }
+    const remaining = plantList.filter(p => p.id !== plant.id);
+    setPlantList(remaining);
+    setSelectedPlantId(remaining[0]?.id || '');
+  } finally {
+    setIsDeleting(false);
+  }
+};
 
   const filteredPlants = plantList.filter(p => 
     p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -151,7 +267,17 @@ export default function PlantRecordsScreen({
                 className={`web-plant-list-item ${selectedPlant?.id === plant.id ? 'active' : ''}`}
                 onClick={() => setSelectedPlantId(plant.id)}
               >
-                <img src={plant.image} alt={plant.name} className="item-avatar-img" />
+              <img
+                  src={getLatestDiagnosticImage(plant)}
+                  alt={plant.name || plant.id}
+                  className="item-avatar-img"
+                  loading="lazy"
+                  decoding="async"
+                  onError={(e) => {
+                    e.currentTarget.onerror = null;
+                    e.currentTarget.src = "/assets/plante_1.jpg";
+                  }}
+              />
                 <div className="item-info-col">
                   <div className="item-title-row">
                     <span className="item-name">{plant.name}</span>
@@ -176,6 +302,33 @@ export default function PlantRecordsScreen({
             COLONNE DROITE : FICHE AGRONOMIQUE DÉTAILLÉE
             ========================================================= */}
         <div className="web-plant-main-dossier">
+
+          <div style={{ display: 'flex', gap: '8px' }}>
+  <button
+    type="button"
+    className="mode-tab-btn"
+    style={{ border: '1px solid #cbd5e1', padding: '6px 12px' }}
+    onClick={() => openEditModal(selectedPlant)}
+    title="Modifier cette culture"
+  >
+    <Edit3 size={15} />
+    <span>Modifier</span>
+  </button>
+
+  <button
+    type="button"
+    className="mode-tab-btn"
+    style={{ border: '1px solid #fecaca', color: '#dc2626', background: '#fef2f2', padding: '6px 12px' }}
+    onClick={() => handleDeleteClick(selectedPlant)}
+    disabled={isDeleting}
+    title="Supprimer cette culture"
+  >
+    <Trash2 size={15} />
+    <span>{isDeleting ? 'Suppression...' : 'Supprimer'}</span>
+  </button>
+</div>
+
+          
           {!selectedPlant ? (
             <div className="web-card" style={{ padding: '48px 24px', textAlign: 'center', color: '#64748b' }}>
               <Sprout size={48} color="#10b981" style={{ margin: '0 auto 16px', display: 'block' }} />
@@ -197,12 +350,18 @@ export default function PlantRecordsScreen({
             <>
           {/* Hero Banner de la plante sélectionnée */}
           <div className="web-card plant-hero-web-card">
+            
             <div className="plant-hero-content-row">
-              <img 
-                src={selectedPlant.image} 
-                alt={selectedPlant.name} 
-                className="plant-hero-web-img"
+               <img 
+                src={getLatestDiagnosticImage(selectedPlant)}
+                alt={selectedPlant.id || "Image de la plante"}
+                className='plant-hero-web-img'
+                onError={(e) => {
+                  e.currentTarget.onerror = null;
+                  e.currentTarget.src = "/assets/plante_1.jpg";
+                }}
               />
+        
               <div className="plant-hero-web-info">
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
                   <span className={`status-pill-large ${selectedPlant.status}`}>
@@ -349,6 +508,7 @@ export default function PlantRecordsScreen({
             </div>
 
             {/* Contenu : Paramètres agronomiques */}
+            
             {activeTab === 'details' && (
               <div className="tab-pane-content">
                 <div className="web-meta-cards-grid">
@@ -387,8 +547,10 @@ export default function PlantRecordsScreen({
                       <Thermometer size={18} />
                     </div>
                     <div>
-                      <span className="meta-card-label">Température mesurée</span>
-                      <strong className="meta-card-val">{selectedPlant.details?.temperature || 'N/A'}</strong>
+                      <span className="meta-card-label">Température actuelle</span>
+                      <strong className="meta-card-val">
+                        {weather ? `${Math.round(weather.temperature)} °C` : (selectedPlant.details?.temperature || 'N/A')}
+                      </strong>
                     </div>
                   </div>
 
@@ -414,6 +576,7 @@ export default function PlantRecordsScreen({
                 </div>
 
                 <div className="meta-notes-box">
+                  <ClimateAgronomyPanel plant={selectedPlant} humidity={airHumidity} onHumidityChange={setAirHumidity} />
                   <span className="notes-heading">Notes agronomiques générales :</span>
                   <p>{selectedPlant.details?.notes || 'Aucune note particulière.'}</p>
                 </div>
@@ -425,7 +588,7 @@ export default function PlantRecordsScreen({
               <div className="tab-pane-content">
                 <div className="web-timeline">
                   {selectedPlant.history?.map((h, i) => (
-                    <div key={i} className="timeline-entry">
+                    <div key={h.id ?? i} className="timeline-entry">
                       <div className="timeline-bullet" />
                       <div className="timeline-card">
                         <div className="timeline-top">
@@ -434,6 +597,26 @@ export default function PlantRecordsScreen({
                         </div>
                         <h4 className="timeline-result">{h.result}</h4>
                         <p className="timeline-notes">{h.notes}</p>
+
+        {h.imageUrl && (
+                    <div className="timeline-image-container">
+                      
+                      <img
+                        src={getPlantImage({ imageUrl: h.imageUrl })}
+                        alt={selectedPlant.name || selectedPlant.id}
+                        className="plant-hero-web-img"
+                         loading="lazy"
+                        decoding="async"
+                        onError={(e) => {
+                          e.currentTarget.onerror = null;
+                          e.currentTarget.src = "/assets/plante_1.jpg";
+                        }}
+                      />
+                      
+                    </div>
+        )}
+
+                        <ClimateHistoryHint plant={selectedPlant} entry={h} />
                       </div>
                     </div>
                   ))}
@@ -458,6 +641,7 @@ export default function PlantRecordsScreen({
                     </div>
                   ))}
                 </div>
+                <ClimateCarePanel plant={selectedPlant} humidity={airHumidity} onHumidityChange={setAirHumidity} />
               </div>
             )}
 
@@ -510,17 +694,18 @@ export default function PlantRecordsScreen({
               </div>
 
               <div className="form-group">
-                <label className="form-label">Espèce botanique</label>
+                <label className="form-label">Espèce botanique ou Type de culture</label>
                 <select 
                   className="form-input"
                   value={newPlantSpecies}
                   onChange={e => setNewPlantSpecies(e.target.value)}
                 >
-                  <option value="Tomate (Solanum lycopersicum)">Tomate (Solanum lycopersicum)</option>
-                  <option value="Aubergine (Solanum melongena)">Aubergine (Solanum melongena)</option>
-                  <option value="Piment (Capsicum annuum)">Piment (Capsicum annuum)</option>
-                  <option value="Poivron (Capsicum annuum)">Poivron (Capsicum annuum)</option>
-                  <option value="Manioc (Manihot esculenta)">Manioc (Manihot esculenta)</option>
+
+                    <option value="Tomate (Solanum lycopersicum)">Tomate → Solanum lycopersicum</option>
+                    <option value="Poivron (Capsicum annuum)">Poivron → Capsicum annuum</option>
+                    <option value="Pomme de terre (Solanum tuberosum)">Pomme de terre → Solanum tuberosum</option>
+                    <option value="Autre">Autres</option>
+                  
                 </select>
               </div>
 
@@ -562,6 +747,115 @@ export default function PlantRecordsScreen({
           </div>
         </div>
       )}
+
+
+            {/* =========================================================
+          MODALE DE MODIFICATION D'UNE CULTURE
+          ========================================================= */}
+      {showEditModal && selectedPlant && (
+        <div className="modal-backdrop" onClick={() => setShowEditModal(false)}>
+          <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Edit3 size={20} color="#10b981" />
+                <h3 className="modal-title">Modifier la culture ({selectedPlant.id})</h3>
+              </div>
+              <button 
+                type="button" 
+                className="screen-app-btn-icon" 
+                onClick={() => setShowEditModal(false)}
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleEditSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '12px' }}>
+              <div className="form-group">
+                <label className="form-label">Nom de la culture *</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="Ex: Tomates Parcelle Nord"
+                  value={editForm.name}
+                  onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                  required
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Espèce botanique</label>
+                {/* <input
+                  type="text"
+                  className="form-input"
+                  placeholder="Ex: Tomate (Solanum lycopersicum)"
+                  value={editForm.species}
+                  
+                /> */}
+                <select 
+                  className="form-input"
+                  value={editForm.species}
+                  onChange={(e) => setEditForm({ ...editForm, species: e.target.value })}
+                >
+
+                    <option value="Tomate (Solanum lycopersicum)">Tomate → Solanum lycopersicum</option>
+                    <option value="Poivron (Capsicum annuum)">Poivron → Capsicum annuum</option>
+                    <option value="Pomme de terre (Solanum tuberosum)">Pomme de terre → Solanum tuberosum</option>
+                    <option value="Autre">Autres</option>
+                  
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Variété</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="Ex: Roma VF"
+                  value={editForm.variety}
+                  onChange={(e) => setEditForm({ ...editForm, variety: e.target.value })}
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Parcelle / Emplacement</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="Ex: Parcelle C2"
+                  value={editForm.plot}
+                  onChange={(e) => setEditForm({ ...editForm, plot: e.target.value })}
+                />
+              </div>
+
+              {saveError && (
+                <div className="auth-alert-box danger" style={{ fontSize: '0.82rem' }}>
+                  {saveError}
+                </div>
+              )}
+
+              <div style={{ display: 'flex', gap: '10px', marginTop: '12px' }}>
+                <button 
+                  type="submit" 
+                  className="web-btn-primary" 
+                  style={{ flex: 1, justifyContent: 'center' }}
+                  disabled={isSavingPlant}
+                >
+                  <span>{isSavingPlant ? 'Enregistrement...' : 'Enregistrer les modifications'}</span>
+                </button>
+                <button
+                  type="button"
+                  className="mode-tab-btn"
+                  style={{ border: '1px solid #cbd5e1', padding: '8px 16px' }}
+                  onClick={() => setShowEditModal(false)}
+                >
+                  Annuler
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

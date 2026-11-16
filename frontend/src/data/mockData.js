@@ -1,4 +1,4 @@
-// Base de données locale et données pour PhytoScan AI
+// Base de données locale et données pour PhytoScan AI pour les tests
 
 export const INITIAL_PLANTS = [
   {
@@ -218,21 +218,25 @@ export const INITIAL_CHAT_MESSAGES = {
 
 export const SAMPLE_QUESTIONS = {
   fr: [
-    "Quelle est la santé de la plante 2 ?",
-    "Comment traiter la tache foliaire (Cercospora) ?",
+    "Quelle est la plante la plus malade ??",
+    "Quelles sont mes alertes ? ?",
+    "Quel est le dernier diagnostic?",
+    "Quels diagnostics sont enregistrés ?",
     "Quelles plantes sont actuellement malades ?",
-    "Conseils d'arrosage pour mes tomates par forte chaleur"
+    "Quels soins sont prévus pour mes plantes ?"
   ],
   wo: [
     "Naka la wàllu garab 2 gi deme ?",
-    "Nan lañuy fajee tàcc yu ñuul ci xobi tomate ?",
     "Ban garab ñoo feebar leegi ?",
-    "Ñaata yoon laay suub xob yi bu tàngoor baree ?"
+    "Ñaata yoon laay suub xob yi bu tàngoor baree ?",
+    "Nan lañuy fajee tàcc yu ñuul ci xobi tomate ?"
   ],
   en: [
-    "What is the health status of plant 2?",
-    "How do I treat Cercospora leaf spot?",
-    "Which crops need urgent attention today?",
-    "Watering tips for tomatoes during hot weather"
+    "Which plant is the sickest?",
+    "What are my alerts?",
+    "What is the latest diagnosis?",
+    "Which diagnoses are recorded?",
+    "Which crops need attention today?",
+    "What care is planned for my plants?"
   ]
 };

@@ -1,0 +1,137 @@
+{
+  "Pepper__bell___Bacterial_spot": {
+    "culture": "Poivron",
+    "maladie": "Gale bactérienne",
+    "temp_min": 24,
+    "temp_max": 30,
+    "humidite_min": 85,
+    "humidite_max": 100,
+    "condition_critique": "Chaleur humide et pluies battantes"
+  },
+  "Pepper__bell___healthy": {
+    "culture": "Poivron",
+    "maladie": "Sain",
+    "temp_min": 20,
+    "temp_max": 28,
+    "humidite_min": 50,
+    "humidite_max": 80,
+    "condition_critique": "Conditions optimales de croissance"
+  },
+  "Potato___Early_blight": {
+    "culture": "Pomme de terre",
+    "maladie": "Alternariose (Mildiou précoce)",
+    "temp_min": 24,
+    "temp_max": 29,
+    "humidite_min": 70,
+    "humidite_max": 100,
+    "condition_critique": "Alternance de périodes sèches et humides sous chaleur"
+  },
+  "Potato___Late_blight": {
+    "culture": "Pomme de terre",
+    "maladie": "Mildiou tardif",
+    "temp_min": 15,
+    "temp_max": 22,
+    "humidite_min": 88,
+    "humidite_max": 100,
+    "condition_critique": "Temps frais et atmosphère saturée en humidité"
+  },
+  "Potato___healthy": {
+    "culture": "Pomme de terre",
+    "maladie": "Saine",
+    "temp_min": 15,
+    "temp_max": 25,
+    "humidite_min": 50,
+    "humidite_max": 80,
+    "condition_critique": "Conditions optimales de croissance"
+  },
+  "Tomato_Bacterial_spot": {
+    "culture": "Tomate",
+    "maladie": "Gale bactérienne",
+    "temp_min": 24,
+    "temp_max": 30,
+    "humidite_min": 85,
+    "humidite_max": 100,
+    "condition_critique": "Forte chaleur combinée à une humidité élevée"
+  },
+  "Tomato_Early_blight": {
+    "culture": "Tomate",
+    "maladie": "Alternariose (Mildiou précoce)",
+    "temp_min": 24,
+    "temp_max": 29,
+    "humidite_min": 75,
+    "humidite_max": 100,
+    "condition_critique": "Chaleur modérée à forte avec rosée ou irrigation foliaire"
+  },
+  "Tomato_Late_blight": {
+    "culture": "Tomate",
+    "maladie": "Mildiou tardif",
+    "temp_min": 15,
+    "temp_max": 22,
+    "humidite_min": 88,
+    "humidite_max": 100,
+    "condition_critique": "Fraîcheur nocturne et humidité supérieure à 88 %"
+  },
+  "Tomato_Leaf_Mold": {
+    "culture": "Tomate",
+    "maladie": "Cladosporiose (Moisissure)",
+    "temp_min": 20,
+    "temp_max": 25,
+    "humidite_min": 85,
+    "humidite_max": 100,
+    "condition_critique": "Serre confinée et manque de ventilation"
+  },
+  "Tomato_Septoria_leaf_spot": {
+    "culture": "Tomate",
+    "maladie": "Septoriose",
+    "temp_min": 20,
+    "temp_max": 25,
+    "humidite_min": 85,
+    "humidite_max": 100,
+    "condition_critique": "Humidité prolongée sur le feuillage"
+  },
+  "Tomato_Spider_mites_Two_spotted_spider_mite": {
+    "culture": "Tomate",
+    "maladie": "Araignées rouges",
+    "temp_min": 27,
+    "temp_max": 40,
+    "humidite_min": 10,
+    "humidite_max": 55,
+    "condition_critique": "Temps très chaud et sec (éliminer si humidité > 70 %)"
+  },
+  "Tomato__Target_Spot": {
+    "culture": "Tomate",
+    "maladie": "Corynesporiose",
+    "temp_min": 20,
+    "temp_max": 28,
+    "humidite_min": 80,
+    "humidite_max": 100,
+    "condition_critique": "Climat chaud et humide persistant"
+  },
+  "Tomato__Tomato_YellowLeaf__Curl_Virus": {
+    "culture": "Tomate",
+    "maladie": "Virus de l'enroulement jaune (TYLCV)",
+    "temp_min": 28,
+    "temp_max": 42,
+    "humidite_min": 10,
+    "humidite_max": 65,
+    "condition_critique": "Forte chaleur sèche favorisant les mouches blanches"
+  },
+  "Tomato__Tomato_mosaic_virus": {
+    "culture": "Tomate",
+    "maladie": "Virus de la mosaïque",
+    "temp_min": 18,
+    "temp_max": 32,
+    "humidite_min": 20,
+    "humidite_max": 95,
+    "condition_critique": "Transmission mécanique (outils, mains), peu lié à la météo"
+  },
+  "Tomato_healthy": {
+    "culture": "Tomate",
+    "maladie": "Saine",
+    "temp_min": 18,
+    "temp_max": 28,
+    "humidite_min": 40,
+    "humidite_max": 80,
+    "condition_critique": "Conditions optimales de croissance"
+  }
+}

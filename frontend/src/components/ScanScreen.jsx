@@ -228,7 +228,7 @@ export default function ScanScreen({
             {onClearTargetPlant && (
               <button 
                 type="button" 
-                className="web-btn-cancel-target"
+                className="web-btn-change-clt"
                 onClick={onClearTargetPlant}
                 title="Annuler le ciblage"
               >
@@ -247,7 +247,7 @@ export default function ScanScreen({
         <div className="web-card scan-left-card">
           <div className="card-section-header">
             <h3>Module de Capture & Viseur Caméra</h3>
-            <span className="badge-model-info">Modèle Octopus Vision v2.4</span>
+            <span className="badge-model-info">Modèle PhytoScan Vision v1.0</span>
           </div>
 
           {/* Viseur Caméra / Preview */}
@@ -265,6 +265,7 @@ export default function ScanScreen({
                 src={currentImage} 
                 alt="Plante dans le viseur" 
                 className="web-preview-img"
+               
               />
             )}
 
@@ -324,7 +325,7 @@ export default function ScanScreen({
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <Sparkles size={16} className="progress-spinner" color="#10b981" />
                   <span style={{ fontWeight: 600, fontSize: '0.85rem' }}>
-                    Traitement par les réseaux neuronaux Octopus...
+                    Traitement par les réseaux neuronaux PhytoScan...
                   </span>
                 </div>
                 <span style={{ fontWeight: 800, color: '#10b981', fontSize: '0.9rem' }}>

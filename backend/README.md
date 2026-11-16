@@ -40,7 +40,7 @@ Si une base de développement a déjà été créée par `create_all` et ne cont
 
 Le front utilise par défaut `http://localhost:8000/phytoscan/v1`. Vous pouvez définir
 `VITE_API_BASE_URL` dans `frontend/.env.local` pour changer cette adresse. Le mode Live est sélectionné
-par défaut ; le mode simulation reste disponible depuis la modale Octopus.
+par défaut ; le mode simulation reste disponible depuis la modale PhytoScan.
 
 En développement, gardez `AUTH_REQUIRED=false` dans le back : l'inscription, la connexion JWT et les
 routes de plantes fonctionnent déjà avec les jetons transmis par le front. Les appels scan et assistant
@@ -57,7 +57,7 @@ envoient également ce jeton lorsqu'une session existe.
 | Ajout d'une culture (`handleAddPlant`) | `POST /phytoscan/v1/plants` (JSON : `name`, `species`, `variety`, `plot`) |
 | Alertes du panneau de droite de l'assistant | `GET /phytoscan/v1/alerts` |
 | `ASSISTANT_LANGUAGES`, `SAMPLE_QUESTIONS` | `GET /phytoscan/v1/assistant/languages`, `GET /assistant/suggestions?language=fr` |
-| « Tester la connectivité » (modale Octopus) | `GET /phytoscan/v1/health` |
+| « Tester la connectivité » (modale IA V3 EfficientNetB0) | `GET /phytoscan/v1/health` |
 
 Langue : ajouter `?lang=fr|wo|en` à chaque requête (sinon l'en-tête `Accept-Language`, puis le français).
 

@@ -1,7 +1,9 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/phytoscan/v1';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "https://phytoscan-sn.onrender.com/phytoscan/v1";
 const CONFIG_STORAGE_KEY = 'phytoscan_octopus_config';
 const ACCESS_TOKEN_KEY = 'phytoscan_access_token';
 const REFRESH_TOKEN_KEY = 'phytoscan_refresh_token';
+/** Émis quand le jeton est refusé et ne peut pas être renouvelé : l'application repasse en mode démo. */
+export const SESSION_EXPIRED_EVENT = 'phytoscan:session-expired';
 
 const getStorage = (key) => localStorage.getItem(key) || sessionStorage.getItem(key);
 const getConfiguredApiBaseUrl = () => {
@@ -38,7 +40,8 @@ const refreshAccessToken = async (baseUrl) => {
   const response = await fetch(`${baseUrl}/auth/refresh`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ refreshToken })
+    // les deux écritures : le back accepte l'une ou l'autre selon la configuration de ses schémas
+    body: JSON.stringify({ refreshToken, refresh_token: refreshToken })
   });
   if (!response.ok) return false;
 
@@ -62,6 +65,12 @@ const request = async (path, options, retry = true, baseUrl = getConfiguredApiBa
   }
   if (response.status === 401 && retry && path !== '/auth/refresh' && await refreshAccessToken(baseUrl)) {
     return request(path, options, false, baseUrl);
+  }
+  // Un jeton était envoyé mais il est définitivement refusé : session perdue -> retour au mode démo.
+  // (Sans cela, un vieux jeton ferait échouer TOUTES les requêtes, même celles de la démo.)
+  if (response.status === 401 && token && !path.startsWith('/auth/')) {
+    clearTokens();
+    window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT));
   }
 
   if (!response.ok) {

@@ -36,7 +36,7 @@ export default function LoginScreen({ onNavigateToRegister, onLoginSuccess }) {
     setLoading(false);
 
     if (res.success) {
-      setSuccessMsg(`Ravi de vous revoir, ${res.user.name} !`);
+      setSuccessMsg(`Bonjour, ${res.user.name} !`);
       if (onLoginSuccess) onLoginSuccess(res.user);
     } else {
       setError(res.message);
@@ -61,7 +61,7 @@ export default function LoginScreen({ onNavigateToRegister, onLoginSuccess }) {
           <div className="auth-sidebar-pitch">
             <h3>Retrouvez l'historique et la santé de vos cultures</h3>
             <p>
-              Connectez-vous pour accéder à vos parcelles enregistrées, consulter les diagnostics de l'Agent IA Octopus et piloter vos soins agronomiques.
+              Connectez-vous pour accéder à vos parcelles enregistrées, consulter les diagnostics de l'Agent IA PhytoScan et piloter vos soins agronomiques.
             </p>
           </div>
 

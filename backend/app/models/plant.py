@@ -53,6 +53,9 @@ class PlantHistory(Base):
     type: Mapped[str] = mapped_column(String(80))      # ex. "Scan IA"
     result: Mapped[str] = mapped_column(String(300))
     notes: Mapped[Optional[str]] = mapped_column(Text, default=None)
+    # Lien vers le scan d'origine (photo du diagnostic) ; NULL pour les événements sans scan
+    analysis_id: Mapped[Optional[str]] = mapped_column(String(32), default=None)
+    image_path: Mapped[Optional[str]] = mapped_column(String(300), default=None)
 
 
 class PlantCare(Base):

@@ -2,8 +2,8 @@
 import { apiRequest } from './apiClient';
 
 const DEFAULT_CONFIG = {
-  baseUrl: import.meta.env.VITE_API_BASE_URL || "http://localhost:8000/phytoscan/v1",
-  model: "octopus-vision-v2",
+  baseUrl: import.meta.env.VITE_API_BASE_URL || "https://phytoscan-sn.onrender.com/phytoscan/v1",
+  model: "deep learning EfficientNetB0",
   useMock: false
 };
 
@@ -21,7 +21,7 @@ export const saveOctopusConfig = (config) => {
   try {
     localStorage.setItem("phytoscan_octopus_config", JSON.stringify(config));
   } catch (err) {
-    console.error("Erreur sauvegarde config Octopus:", err);
+    console.error("Erreur sauvegarde config PhytoScan:", err);
   }
 };
 
@@ -274,7 +274,7 @@ function selectProfileFromMetrics(metrics, imageSource, options = {}) {
 }
 
 /**
- * Analyse une photo de plante avec l'Agent IA Octopus
+ * Analyse une photo de plante avec l'Agent IA 
  * @param {File|Blob|string} imageFile - Fichier image ou DataURL
  * @param {Object} options - Options supplémentaires
  * @returns {Promise<Object>} Résultat du diagnostic
@@ -312,7 +312,7 @@ export async function analyzePlantImage(imageFile, options = {}) {
 }
 
 /**
- * Simulation réaliste d'inférence de l'Agent Octopus basée sur l'analyse spectrale/colorimétrique
+ * Simulation réaliste d'inférence de l'Agent IA basée sur l'analyse spectrale/colorimétrique
  */
 async function simulateOctopusInference(imageFile, options = {}) {
   const metrics = await analyzeLeafColorimetry(imageFile);
@@ -343,7 +343,7 @@ async function simulateOctopusInference(imageFile, options = {}) {
 }
 
 /**
- * Pose une question à l'assistant vocal Octopus
+ * Pose une question à l'assistant vocal PhytoScan
  */
 export async function askOctopusAssistant(question, language = "fr", context = {}) {
   const config = getOctopusConfig();
@@ -360,6 +360,72 @@ export async function askOctopusAssistant(question, language = "fr", context = {
     }
   }
 
+ if (
+  qLower.includes("plus malade") ||
+  qLower.includes("plus critique") ||
+  qLower.includes("malade")
+) {
+
+  const worstPlant = [...plants]
+    .filter(p => p.healthScore !== undefined)
+    .sort((a, b) => a.healthScore - b.healthScore)[0];
+
+  if (worstPlant) {
+    return {
+      text: `La culture la plus préoccupante est ${worstPlant.name}. Son indice de santé est de ${worstPlant.healthScore}/100. ${worstPlant.alert || ""}`,
+      timestamp: new Date().toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit"
+      }),
+      audioUrl: null
+    };
+  }
+}
+
+if (
+  qLower.includes("maladies") ||
+  qLower.includes("diagnostics") ||
+  qLower.includes("historique")
+) {
+
+  const diseases = recentDiseases.map(
+    d => `${d.plant} : ${d.disease} (${d.date})`
+  );
+
+  return {
+    text: diseases.length
+      ? diseases.join("\n")
+      : "Aucune maladie détectée dans l'historique.",
+    timestamp: new Date().toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit"
+    }),
+    audioUrl: null
+  };
+}
+
+if (
+  qLower.includes("alerte") ||
+  qLower.includes("alertes")
+) {
+
+  const activeAlerts = plants.filter(
+    p => p.alert
+  );
+
+  return {
+    text: activeAlerts.length
+      ? activeAlerts
+          .map(p => `${p.name} : ${p.alert}`)
+          .join("\n")
+      : "Aucune alerte active.",
+    timestamp: new Date().toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit"
+    }),
+    audioUrl: null
+  };
+}
   // Réponses contextuelles multilingues intelligentes
   const qLower = question.toLowerCase();
 
@@ -394,7 +460,12 @@ export async function askOctopusAssistant(question, language = "fr", context = {
   let reply = langSet.default;
   const plants = Array.isArray(context?.plants) ? context.plants : [];
   const sickPlants = plants.filter(p => p.status !== "saine" || Boolean(p.alert));
-
+  const recentDiseases = plants.flatMap(p =>(p.history || []).map(h => ({
+                                              plant: p.name,
+                                              disease: h.result,
+                                              date: h.date
+                                            }))
+                                          );
   // Si la question porte sur la liste des plantes malades ou en alerte
   if (
     qLower.includes("quelles plantes") ||
@@ -442,4 +513,55 @@ export async function askOctopusAssistant(question, language = "fr", context = {
     timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
     audioUrl: null
   };
+}
+
+const VOICE_API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://phytoscan-sn.onrender.com/phytoscan/v1';
+;
+
+/**
+ * Envoie la question vocale au back (Push-to-Talk) : POST /voice/chat
+ * Champs attendus par le back : audio (fichier), language, session_id (facultatif).
+ */
+export async function transcribeAssistantAudio(audioBlob, language = 'fr', sessionId = null) {
+  const config = getOctopusConfig();
+  const extension = audioBlob.type.includes('mp4') ? 'm4a' : 'webm';
+
+  const formData = new FormData();
+  formData.append('audio', audioBlob, `question.${extension}`);
+  formData.append('language', language);
+  if (sessionId) formData.append('session_id', sessionId);
+
+  // Ne pas définir Content-Type : le navigateur ajoute lui-même la limite multipart.
+  return apiRequest('/voice/chat', { method: 'POST', body: formData }, config.baseUrl);
+}
+
+// ---------------------------------------------------------------- Voix wolof (modèles hébergés sur notre serveur)
+/** La voix wolof est-elle activée côté serveur ? (jamais d'erreur : { enabled: false } si injoignable) */
+export async function getWolofVoiceStatus() {
+  const config = getOctopusConfig();
+  try {
+    return await apiRequest('/voice/wolof/status', { method: 'GET' }, config.baseUrl);
+  } catch {
+    return { enabled: false };
+  }
+}
+
+/** Envoie une question parlée en wolof. Réponse : { transcript, text, timestamp, sessionId, audioBase64, audioMimeType, audioError } */
+export async function sendWolofVoice(audioBlob, sessionId = null) {
+  const config = getOctopusConfig();
+  const type = audioBlob.type || '';
+  const extension = type.includes('mp4') ? 'm4a' : type.includes('ogg') ? 'ogg' : 'webm';
+
+  const formData = new FormData();
+  formData.append('audio', audioBlob, `question.${extension}`);
+  if (sessionId) formData.append('session_id', sessionId);
+
+  // Ne pas définir Content-Type : le navigateur ajoute lui-même la limite multipart.
+  return apiRequest('/voice/wolof/chat', { method: 'POST', body: formData }, config.baseUrl);
+}
+
+/** Adresse lisible par <audio> à partir de la réponse du back (ou null s'il n'y a pas de son). */
+export function audioSrcFromResponse(response) {
+  if (!response?.audioBase64) return null;
+  return `data:${response.audioMimeType || 'audio/wav'};base64,${response.audioBase64}`;
 }
