@@ -62,7 +62,7 @@ export default function FooterBanner({ onNavigate }) {
               <div className="brand-logo-icon" style={{ width: 32, height: 32 }}>
                 <Leaf size={18} />
               </div>
-              <strong style={{ fontSize: '1.2rem', color: '#0f382a' }}>PhytoScan AI</strong>
+              <strong style={{ fontSize: '1.2rem', color: '#60f0c0' }}>PhytoScan AI</strong>
             </div>
             <p className="web-footer-tagline">
               Des plantes en meilleure santé, grâce à l'intelligence artificielle agronomique.
