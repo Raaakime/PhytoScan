@@ -165,7 +165,7 @@ PLANTS = [
         ],
     },
     {
-        "id": "P-002", "name": "Plante 2", "species": "Aubergine (Solanum melongena)", "variety": "Black Beauty",
+        "id": "P-002", "name": "Plante 2", "species": "Poivron ", "variety": "Black Beauty",
         "status": "surveiller", "growth_stage": "Végétatif avancé",
         "planting_date": date(2025, 3, 2), "last_observation": date(2025, 4, 22),
         "plot": "Parcelle B1 - Plein champ", "water_schedule": "Arrosage au pied (tous les 2 jours)",
@@ -184,7 +184,7 @@ PLANTS = [
         ],
     },
     {
-        "id": "P-003", "name": "Plante 3", "species": "Piment (Capsicum chinense)", "variety": "Antillais / Habanero",
+        "id": "P-003", "name": "Plante 3", "species": "Pomme de terre ", "variety": "Antillais / Habanero",
         "status": "malade", "growth_stage": "Début floraison",
         "planting_date": date(2025, 2, 15), "last_observation": date(2025, 4, 23),
         "plot": "Parcelle C2 - Planche 4", "water_schedule": "Manuel le soir",

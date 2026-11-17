@@ -39,7 +39,7 @@ export const INITIAL_PLANTS = [
   {
     id: "P-002",
     name: "Plante 2",
-    species: "Aubergine (Solanum melongena)",
+    species: "pomme de terre",
     variety: "Black Beauty",
     status: "surveiller",
     statusLabel: "À surveiller",
@@ -72,7 +72,7 @@ export const INITIAL_PLANTS = [
   {
     id: "P-003",
     name: "Plante 3",
-    species: "Piment (Capsicum chinense)",
+    species: "poivron",
     variety: "Antillais / Habanero",
     status: "malade",
     statusLabel: "Malade",
@@ -107,8 +107,8 @@ export const INITIAL_PLANTS = [
 
 export const COMMON_DISEASES = {
   cercospora: {
-    name: "Tache foliaire (Cercospora)",
-    pathogen: "Cercospora spp. (Champignon)",
+    name: "Tache foliaire",
+    pathogen: "malade",
     severity: "Élevée",
     confidence: "96.4%",
     description: "Infection fongique caractérisée par de petites taches circulaires brunes avec un centre grisâtre et un halo chlorotique jaune.",

@@ -27,7 +27,7 @@ export default function ScanScreen({
   onClearTargetPlant,
   onSaveDiagnosticToPlant 
 }) {
-  const [currentImage, setCurrentImage] = useState('/assets/sample_infected_leaf.jpg');
+  const [currentImage, setCurrentImage] = useState('/assets/sample_infected_leaf.png');
   const [isScanning, setIsScanning] = useState(false);
   const [hasScanned, setHasScanned] = useState(false);
   const [scanProgress, setScanProgress] = useState(0);

@@ -6,7 +6,7 @@ const norm = (s) => (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u
 // Espèce affichée dans l'app -> culture du JSON. Le JSON ne couvre que ces 3 cultures.
 // (Le piment est rapproché du poivron : même espèce, Capsicum annuum.)
 const SPECIES_TO_CULTURE = [['pomme de terre', 'Pomme de terre'], ['tomate', 'Tomate'],
-                            ['poivron', 'Poivron'], ['piment', 'Poivron']];
+                            ['poivron', 'Poivron']];
 
 export function cultureOf(species) {
   const n = norm(species);
