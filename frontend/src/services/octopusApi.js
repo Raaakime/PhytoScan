@@ -565,3 +565,19 @@ export function audioSrcFromResponse(response) {
   if (!response?.audioBase64) return null;
   return `data:${response.audioMimeType || 'audio/wav'};base64,${response.audioBase64}`;
 }
+
+
+/** Convertit une réponse texte wolof en audio lisible par <audio> */
+export async function synthesizeWolofText(text) {
+  const config = getOctopusConfig();
+  const response = await apiRequest(
+    '/voice/wolof/tts',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text })
+    },
+    config.baseUrl
+  );
+  return audioSrcFromResponse(response);
+}

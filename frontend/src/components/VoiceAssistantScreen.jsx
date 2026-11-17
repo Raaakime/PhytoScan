@@ -29,6 +29,7 @@ import { useBrowserVoice } from '../hooks/useBrowserVoice';
 import { useWolofRecorder } from '../hooks/useWolofRecorder';
 import WeatherRiskCard from '../components/WeatherRiskCard';
 import { useClimateRisks } from '../hooks/useClimateRisks';
+import {synthesizeWolofText} from '../services/octopusApi'
 
 export default function VoiceAssistantScreen({
   plants = [],
@@ -120,7 +121,9 @@ export default function VoiceAssistantScreen({
   }, []);
 
   const isWolof = currentLang === 'wo';
-  const micAvailable = isWolof ? (wolofVoice.enabled && canRecordWo) : canListen;
+ const wolofServerReady = Boolean(wolofVoice?.enabled || wolofVoice?.hf_space_url);
+  const micAvailable = isWolof ? (wolofServerReady && canRecordWo) : canListen;
+
   const micActive = isWolof ? isRecordingWo : isListening;
   const waveformActive = isListening || isSpeaking || isThinking || isRecordingWo || isPlayingAudio;
 
@@ -197,6 +200,16 @@ export default function VoiceAssistantScreen({
 
     try {
       const botReply = await askOctopusAssistant(query, currentLang, climate.context);
+      let wolofAudioSrc = null;
+
+      if (isWolof && botReply.text) {
+        try {
+          wolofAudioSrc = await synthesizeWolofText(botReply.text);
+        } catch {
+          setVoiceNotice("Réponse texte affichée (audio wolof indisponible).");
+        }
+      }
+
       setMessages(prev => [
         ...prev,
         {
@@ -204,10 +217,16 @@ export default function VoiceAssistantScreen({
           sender: 'bot',
           text: botReply.text,
           timestamp: botReply.timestamp || nowLabel(),
-          hasAudio: canSpeak
+          hasAudio: isWolof ? Boolean(wolofAudioSrc) : canSpeak,
+          audioSrc: wolofAudioSrc
         }
       ]);
-      speakText(botReply.text);
+
+      if (isWolof) {
+        if (wolofAudioSrc) playAudio(wolofAudioSrc);
+      } else {
+        speakText(botReply.text);
+      }
     } catch (error) {
       setMessages(prev => [
         ...prev,
@@ -223,6 +242,7 @@ export default function VoiceAssistantScreen({
       setIsThinking(false);
     }
   };
+
 
   const activeLangObj = ASSISTANT_LANGUAGES.find(l => l.code === currentLang) || ASSISTANT_LANGUAGES[0];
   const dynamicAlerts = alerts || (plants || []).filter(p => p.status !== 'saine' || Boolean(p.alert));

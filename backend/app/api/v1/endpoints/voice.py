@@ -3,7 +3,9 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, File, Form, UploadFile
 from sqlalchemy.orm import Session
-
+import base64
+from app.voice.wolof import audio, engine
+from pydantic import BaseModel
 from app.api.deps import get_current_user, require_user
 from app.db.session import get_db
 from app.models import User
@@ -45,3 +47,19 @@ def wolof_chat(
     db: Session = Depends(get_db),
 ):
     return wolof_voice_service.process_wolof_message(db, audio, session_id, user)
+
+
+
+class WolofTtsRequest(BaseModel):
+  text: str
+
+
+
+@router.post("/wolof/tts")
+def wolof_tts(payload: WolofTtsRequest):
+  wave, rate = engine.synthesize(payload.text)
+  wav_bytes = audio.to_wav_bytes(wave, rate)
+  return {
+      "audioBase64": base64.b64encode(wav_bytes).decode("ascii"),
+      "audioMimeType": "audio/wav",
+  }
