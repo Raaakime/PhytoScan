@@ -172,7 +172,7 @@ TEXTS["wo"] = {**TEXTS["fr"], **_WO_OVERRIDES}
 SUGGESTIONS = {
     "fr": ["Quelle est la santé de la plante 2 ?", "Comment traiter la tache foliaire (Cercospora) ?",
            "Quelles plantes sont actuellement malades ?", "Conseils d'arrosage pour mes tomates par forte chaleur"],
-    "wo": ["Naka la wàllu garab 2 gi deme ?", "Nan lañuy fajee tàcc yu ñuul ci xobi tomate ?",
+    "wo": ["Amul garab gu wara Saytu fi léegi ?", "Nan lañuy fajee tàcc yu ñuul ci xobi tomate ?",
            "Ban garab ñoo feebar leegi ?", "Ñaata yoon laay suub xob yi bu tàngoor baree ?"],
     "en": ["What is the health status of plant 2?", "How do I treat Cercospora leaf spot?",
            "Which crops need urgent attention today?", "Watering tips for tomatoes during hot weather"],

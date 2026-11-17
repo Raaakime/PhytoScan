@@ -10,7 +10,7 @@ import OctopusConfigModal from './components/OctopusConfigModal';
 import { DemoBanner, SignupPromptModal } from './components/DemoBanner';
 import { getOctopusConfig } from './services/octopusApi';
 import { getCurrentUser, logoutUser } from './services/authService';
-import { createPlant, listPlants, savePlantDiagnostic } from './services/plantsApi';
+import { createPlant, listPlants, savePlantDiagnostic, deletePlant, updatePlant } from './services/plantsApi';
 import { apiRequest, SESSION_EXPIRED_EVENT } from './services/apiClient';
 
 const AUTH_SCREENS = ['login', 'register'];
@@ -180,6 +180,32 @@ export default function App() {
     }
   };
 
+  const handleDeletePlant = async (plantId) => {
+  if (isDemo) requireAccount("Pour supprimer une culture, créez votre compte.");
+  try {
+    await deletePlant(plantId);
+    setPlantsList(previous => previous.filter(item => item.id !== plantId));
+    setPlantsError('');
+  } catch (error) {
+    setPlantsError(`Impossible de supprimer la culture : ${error.message}`);
+    throw error;
+  }
+};
+
+const handleUpdatePlant = async (plantId, plantData) => {
+  if (isDemo) requireAccount("Pour modifier une culture, créez votre compte.");
+  try {
+    const updated = await updatePlant(plantId, plantData);
+    setPlantsList(previous => previous.map(item => (item.id === plantId ? updated : item)));
+    setPlantsError('');
+    return updated;
+  } catch (error) {
+    setPlantsError(`Impossible de modifier la culture : ${error.message}`);
+    throw error;
+  }
+};
+
+
   const handleSaveDiagnosticToPlant = async (diagnostic) => {
     if (isDemo) requireAccount("Vous avez testé le scan. Pour enregistrer ce diagnostic dans le carnet de santé d'une culture, créez votre compte.");
     try {
@@ -216,6 +242,8 @@ export default function App() {
             initialPlantId={navigationParams?.plantId || plantsList[0]?.id || ''}
             onNavigateToScan={(params) => navigateTo('scan', params)}
             onNavigateToAssistant={(params) => navigateTo('assistant', params)}
+            onUpdatePlant={handleUpdatePlant}
+            onDeletePlant={handleDeletePlant}
           />
         );
 

@@ -4593,3 +4593,543 @@ img, video, canvas {
 }
 
 
+
+/* ==========================================================================
+   PhytoScan UX Simplifiée - Dashboard KPIs, Filtres & Sélecteur de langue
+   ========================================================================== */
+
+.ux-kpi-strip {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.ux-kpi-card {
+  background: #ffffff;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(15, 56, 42, 0.03);
+}
+
+.ux-kpi-card:hover {
+  border-color: #10b981;
+  transform: translateY(-2px);
+}
+
+.ux-kpi-card.active {
+  background: #f0fdf4;
+  border-color: #10b981;
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.12);
+}
+
+.ux-kpi-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.ux-kpi-icon.neutral {
+  background: #f1f5f9;
+  color: #334155;
+}
+
+.ux-kpi-icon.success {
+  background: #dcfce7;
+  color: #059669;
+}
+
+.ux-kpi-icon.danger {
+  background: #ffe4e6;
+  color: #e11d48;
+}
+
+.ux-kpi-value {
+  display: block;
+  font-family: var(--font-heading);
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #0f172a;
+  line-height: 1.1;
+}
+
+.ux-kpi-label {
+  display: block;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #64748b;
+  margin-top: 2px;
+}
+
+.ux-filter-pills {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.ux-filter-pill {
+  flex: 1;
+  padding: 6px 10px;
+  border-radius: 20px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  color: #475569;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: center;
+}
+
+.ux-filter-pill:hover {
+  background: #f1f5f9;
+}
+
+.ux-filter-pill.active {
+  background: #059669;
+  border-color: #059669;
+  color: #ffffff;
+}
+
+.ux-card-top-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.ux-icon-text-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 10px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #334155;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.ux-icon-text-btn:hover {
+  background: #f1f5f9;
+}
+
+.ux-icon-text-btn.danger {
+  border-color: #fecaca;
+  background: #fff1f2;
+  color: #be123c;
+}
+
+.ux-icon-text-btn.danger:hover {
+  background: #ffe4e6;
+}
+
+.ux-lang-dropdown-box {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #ffffff;
+  padding: 10px 16px;
+  border-radius: 14px;
+  border: 1.5px solid #cbd5e1;
+  box-shadow: 0 2px 10px rgba(15, 56, 42, 0.05);
+}
+
+.ux-lang-select {
+  border: none;
+  background: #f0fdf4;
+  color: #065f46;
+  font-family: inherit;
+  font-size: 0.92rem;
+  font-weight: 700;
+  padding: 6px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  outline: none;
+  transition: box-shadow 0.2s ease;
+}
+
+.ux-lang-select:focus {
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.35);
+}
+
+.ux-lang-select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.ux-chat-thinking-state {
+  margin: auto;
+  text-align: center;
+  color: #059669;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.92rem;
+  padding: 24px;
+}
+
+.disabled-btn {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+@media (max-width: 768px) {
+  .ux-kpi-strip {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .ux-lang-dropdown-box {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .ux-lang-select {
+    margin: auto;
+    width: 40%;
+  }
+}
+
+/* ==========================================================================
+   PhytoScan UX Simplifiée - Liste déroulante Météo & Risques Climatiques
+   ========================================================================== */
+
+.ux-weather-dropdown-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.ux-weather-select-wrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.ux-weather-select {
+  appearance: none;
+  -webkit-appearance: none;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  padding: 6px 28px 6px 10px;
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #1e293b;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.ux-weather-select:focus {
+  border-color: #10b981;
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.25);
+}
+
+.ux-weather-select-icon {
+  position: absolute;
+  right: 8px;
+  pointer-events: none;
+  color: #64748b;
+}
+
+.ux-weather-dropdown-body {
+  margin-top: 8px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(148, 163, 184, 0.25);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+@media (max-width: 540px) {
+  .ux-weather-select-wrapper,
+  .ux-weather-select {
+    width: 100%;
+  }
+}
+
+
+/* ==========================================================================
+   Bouton "Voir plus / Voir moins" pour affichage progressif (UX épurée)
+   ========================================================================== */
+
+.ux-see-more-btn {
+  width: 100%;
+  margin-top: 12px;
+  padding: 9px 14px;
+  border-radius: 10px;
+  border: 1px dashed #cbd5e1;
+  background: #f8fafc;
+  color: #059669;
+  font-family: inherit;
+  font-size: 0.84rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+}
+
+.ux-see-more-btn:hover {
+  background: #f0fdf4;
+  border-color: #10b981;
+  color: #047857;
+}
+
+/* ==========================================================================
+   Menu contextuel Actions (Modifier / Supprimer)
+   ========================================================================== */
+
+.ps-menu-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  margin-left: auto;
+}
+
+.ps-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  font-family: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.ps-btn--ghost {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  color: #475569;
+}
+
+.ps-btn--ghost:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  color: #0f172a;
+}
+
+.ps-btn--ghost[aria-expanded="true"] {
+  background: #ecfdf5;
+  border-color: #10b981;
+  color: #059669;
+}
+
+.ps-btn--icon {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+}
+
+.ps-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 210px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 6px;
+  box-shadow: 0 12px 28px -6px rgba(15, 56, 42, 0.14), 0 4px 10px -2px rgba(15, 23, 42, 0.06);
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  animation: psMenuFadeIn 0.15s ease-out;
+}
+
+@keyframes psMenuFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.ps-menu [role="menuitem"] {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border: none;
+  border-radius: 9px;
+  background: transparent;
+  color: #334155;
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.ps-menu [role="menuitem"]:hover:not(:disabled) {
+  background: #f0fdf4;
+  color: #065f46;
+}
+
+.ps-menu [role="menuitem"].is-danger {
+  color: #be123c;
+}
+
+.ps-menu [role="menuitem"].is-danger:hover:not(:disabled) {
+  background: #fff1f2;
+  color: #9f1239;
+}
+
+.ps-menu [role="menuitem"]:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+
+@media (max-width: 768px) {
+  .ux-weather-select {
+    font-size: 0.84rem;
+    padding: 9px 32px 9px 10px;
+    width: 150px;
+  }
+}
+
+
+
+/* ==========================================================================
+   PhytoScan UX Simplifiée - ScanScreen (Bureau, Tablette & Mobile)
+   ========================================================================== */
+
+.ux-scan-plant-picker {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #ffffff;
+  padding: 10px 16px;
+  border-radius: 14px;
+  border: 1.5px solid #cbd5e1;
+  box-shadow: 0 2px 10px rgba(15, 56, 42, 0.05);
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.ux-sample-dropdown-row {
+  margin-top: 10px;
+  width: 100%;
+}
+
+.ux-sample-select {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: 9px 12px;
+  border-radius: 10px;
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  color: #334155;
+  font-family: inherit;
+  font-size: 0.84rem;
+  font-weight: 600;
+  cursor: pointer;
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+.ux-sample-select:hover:not(:disabled) {
+  background: #f1f5f9;
+  border-color: #10b981;
+}
+
+.ux-scan-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  max-width: 440px;
+  margin-top: 8px;
+  text-align: left;
+}
+
+.ux-scan-step-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 12px 14px;
+  font-size: 0.88rem;
+  color: #334155;
+  line-height: 1.4;
+}
+
+.ux-step-num {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #d1fae5;
+  color: #065f46;
+  font-weight: 800;
+  font-size: 0.82rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.ux-atlas-toggle-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+@media (max-width: 768px) {
+  .ux-scan-plant-picker {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .ux-scan-plant-picker .ux-lang-select {
+    flex: 1;
+    max-width: 100%;
+    min-width: 0;
+    text-overflow: ellipsis;
+  }
+
+  .ux-sample-select {
+    min-height: 40px;
+    font-size: 0.84rem;
+  }
+}

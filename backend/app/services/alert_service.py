@@ -12,7 +12,7 @@ from app.services import plant_service
 
 
 def _short(text: Optional[str], sep: str) -> str:
-    """'Parcelle B1 - Plein champ' -> 'Parcelle B1' ; 'Aubergine (Solanum melongena)' -> 'Aubergine'."""
+    """'Parcelle B1 - Plein champ' -> 'Parcelle B1' ; 'Tomate ' -> 'Tomate'."""
     return (text or "").split(sep)[0].strip()
 
 

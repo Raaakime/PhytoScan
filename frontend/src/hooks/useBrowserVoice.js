@@ -1,6 +1,6 @@
 // Voix 100 % gratuite, sans clé ni back : reconnaissance et lecture vocales intégrées au navigateur.
 // Langues : fr et en. Le wolof n'est PAS pris en charge par les navigateurs (voir canListen / canSpeak).
-// Fonctionne sur Chrome / Edge / Safari, en HTTPS ou sur localhost. Firefox : pas de reconnaissance vocale.
+// Fonctionne sur Chrome / Edge / Safari, en HTTPS ou sur . Firefox : pas de reconnaissance vocale.
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 const LANG_MAP = { fr: 'fr-FR', en: 'en-US' };

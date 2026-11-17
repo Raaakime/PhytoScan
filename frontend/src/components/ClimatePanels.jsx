@@ -43,7 +43,7 @@ function NoRules({ plant }) {
     <div style={{ ...box, background: '#f8fafc' }}>
       <span style={heading}>Règles climatiques</span>
       <span style={muted}>
-        Le modèle PhytoScan couvre la tomate, le poivron et la pomme de terre. Aucune règle n'est disponible
+        Le modèle  EfficientNetB0 v3 couvre la tomate, le poivron et la pomme de terre. Aucune règle n'est disponible
         pour « {plant?.species || 'cette culture'} ».
       </span>
     </div>

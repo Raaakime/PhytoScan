@@ -13,7 +13,9 @@ import {
   ShieldAlert,
   Check,
   Activity,
-  ScanLine
+  ScanLine,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 import { analyzePlantImage } from '../services/octopusApi';
 
@@ -26,13 +28,22 @@ export default function ScanScreen({
   onSaveDiagnosticToPlant 
 }) {
   const [currentImage, setCurrentImage] = useState('/assets/sample_infected_leaf.jpg');
-  // Le scan est inactif au chargement de la page : pas d'animation ni d'analyse automatique
   const [isScanning, setIsScanning] = useState(false);
   const [hasScanned, setHasScanned] = useState(false);
   const [scanProgress, setScanProgress] = useState(0);
   const [hasSavedDiagnostic, setHasSavedDiagnostic] = useState(false);
   const [isSavingDiagnostic, setIsSavingDiagnostic] = useState(false);
   const [saveError, setSaveError] = useState('');
+
+  // Choix direct de la culture cible si aucune n'est pré-sélectionnée
+  const [selectedTargetId, setSelectedTargetId] = useState(
+    targetPlant?.id || plants[0]?.id || ''
+  );
+
+  // Affichage progressif (Voir plus / Atlas repliable)
+  const [showFullResult, setShowFullResult] = useState(false);
+  const [showAtlas, setShowAtlas] = useState(false);
+
   const [analysisResult, setAnalysisResult] = useState({
     status: 'malade',
     statusLabel: 'Maladie détectée',
@@ -57,6 +68,14 @@ export default function ScanScreen({
   const objectUrlRef = useRef(null);
 
   useEffect(() => {
+    if (targetPlant?.id) {
+      setSelectedTargetId(targetPlant.id);
+    } else if (!selectedTargetId && plants.length > 0) {
+      setSelectedTargetId(plants[0].id);
+    }
+  }, [targetPlant, plants]);
+
+  useEffect(() => {
     let stream = null;
     if (useCameraStream) {
       navigator.mediaDevices?.getUserMedia({ video: { facingMode: 'environment' } })
@@ -79,7 +98,6 @@ export default function ScanScreen({
     };
   }, [useCameraStream]);
 
-  // Nettoyage des ObjectURLs créés lors de l'import de fichiers
   useEffect(() => {
     return () => {
       if (objectUrlRef.current) {
@@ -88,7 +106,6 @@ export default function ScanScreen({
     };
   }, []);
 
-  // Capture la frame actuelle du flux vidéo <video> dans un <canvas> et retourne un DataURL JPEG
   const captureVideoFrame = () => {
     const videoEl = videoRef.current;
     if (!videoEl || videoEl.readyState < 2) {
@@ -103,11 +120,9 @@ export default function ScanScreen({
     return canvas.toDataURL('image/jpeg', 0.92);
   };
 
-  // Déclencher une analyse IA uniquement sur action explicite
   const handleTriggerScan = async (sampleType = 'default', specificImage = null) => {
     let imgToAnalyze = specificImage || currentImage;
 
-    // Si la caméra en direct est active et qu'aucun échantillon spécifique n'est forcé, capturer la frame vidéo
     if (!specificImage && useCameraStream) {
       const capturedDataUrl = captureVideoFrame();
       if (capturedDataUrl) {
@@ -120,6 +135,7 @@ export default function ScanScreen({
     setIsScanning(true);
     setScanProgress(15);
     setHasSavedDiagnostic(false);
+    setShowFullResult(false);
 
     const pInterval = setInterval(() => {
       setScanProgress(prev => (prev < 90 ? prev + 18 : prev));
@@ -166,20 +182,31 @@ export default function ScanScreen({
     }
   };
 
-  const handleSelectSample = (type, imagePath) => {
+  const handleSampleDropdown = (e) => {
+    const val = e.target.value;
+    if (!val) return;
     setUseCameraStream(false);
-    setCurrentImage(imagePath);
-    handleTriggerScan(type, imagePath);
+    if (val === 'infected') {
+      setCurrentImage('/assets/sample_infected_leaf.jpg');
+      handleTriggerScan('infected', '/assets/sample_infected_leaf.jpg');
+    } else if (val === 'healthy') {
+      setCurrentImage('/assets/comparaison_saine.jpg');
+      handleTriggerScan('healthy', '/assets/comparaison_saine.jpg');
+    }
+    e.target.value = '';
   };
+
+  const activePlantObj = targetPlant || plants.find(p => p.id === selectedTargetId) || plants[0] || null;
 
   const handleSaveDiagnostic = async () => {
     if (!onSaveDiagnosticToPlant || isSavingDiagnostic) return;
 
+    const plantIdToSave = activePlantObj?.id || 'P-001';
     setIsSavingDiagnostic(true);
     setSaveError('');
     try {
       await onSaveDiagnosticToPlant({
-        plantId: targetPlant ? targetPlant.id : (plants?.[0]?.id || 'P-001'),
+        plantId: plantIdToSave,
         status: analysisResult.status,
         statusLabel: analysisResult.statusLabel,
         diseaseName: analysisResult.diseaseName,
@@ -195,9 +222,12 @@ export default function ScanScreen({
     }
   };
 
+  const allRemedies = analysisResult.remedies || [];
+  const visibleRemedies = showFullResult ? allRemedies : allRemedies.slice(0, 1);
+
   return (
     <div className="web-page-container">
-      {/* En-tête de section du site web */}
+      {/* En-tête simple */}
       <div className="web-page-header">
         <div>
           <div className="web-breadcrumb">
@@ -205,24 +235,23 @@ export default function ScanScreen({
             <span>/</span>
             <span className="current">Diagnostic IA</span>
           </div>
-          <h1 className="web-page-title">
-            Laboratoire de Diagnostic Phytosanitaire par Vision IA
-          </h1>
+          <h1 className="web-page-title">Scanner une feuille</h1>
           <p className="web-page-subtitle">
-            Numérisez ou téléversez une feuille pour détecter automatiquement les agents pathogènes, estimer la sévérité et obtenir les protocoles de soin adaptés.
+            Prenez une photo ou choisissez une image de feuille pour vérifier si votre plante est en bonne santé.
           </p>
         </div>
 
-        {targetPlant && (
+        {/* Sélecteur de culture cible clair */}
+        {targetPlant ? (
           <div className="web-target-plant-card">
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               <div className="web-target-icon">
                 <Sprout size={20} />
               </div>
               <div>
-                <span className="web-target-tag">Diagnostic ciblé</span>
-                <strong className="web-target-title">{targetPlant.name} ({targetPlant.species})</strong>
-                <span className="web-target-meta">{targetPlant.plot} • {targetPlant.variety}</span>
+                <span className="web-target-tag">Culture sélectionnée</span>
+                <strong className="web-target-title">{targetPlant.name}</strong>
+                <span className="web-target-meta">{targetPlant.plot}</span>
               </div>
             </div>
             {onClearTargetPlant && (
@@ -230,27 +259,44 @@ export default function ScanScreen({
                 type="button" 
                 className="web-btn-change-clt"
                 onClick={onClearTargetPlant}
-                title="Annuler le ciblage"
+                title="Changer de culture"
               >
-                ✕ Changer de culture
+                ✕ Changer
               </button>
             )}
+          </div>
+        ) : plants.length > 0 && (
+          <div className="ux-scan-plant-picker">
+            <Sprout size={18} color="#059669" />
+            <label htmlFor="scan-target-select" className="lang-label">Culture :</label>
+            <select
+              id="scan-target-select"
+              className="ux-lang-select"
+              value={selectedTargetId}
+              onChange={(e) => setSelectedTargetId(e.target.value)}
+            >
+              {plants.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name} ({p.plot})
+                </option>
+              ))}
+            </select>
           </div>
         )}
       </div>
 
-      {/* Grille principale 2 colonnes du site web */}
+      {/* Grille 2 colonnes */}
       <div className="web-scan-grid">
-        {/* =========================================================
-            COLONNE GAUCHE : ACQUISITION VISUELLE & CAPTURE
-            ========================================================= */}
+        {/* COLONNE GAUCHE : PHOTO & LANCEMENT */}
         <div className="web-card scan-left-card">
           <div className="card-section-header">
-            <h3>Module de Capture & Viseur Caméra</h3>
-            <span className="badge-model-info">Modèle PhytoScan Vision v1.0</span>
+            <h3>1. Image de la feuille</h3>
+            <span className="badge-model-info">
+              {isScanning ? "Analyse..." : hasScanned ? "Terminé" : "Prêt"}
+            </span>
           </div>
 
-          {/* Viseur Caméra / Preview */}
+          {/* Viseur épuré */}
           <div className="web-viewfinder-box">
             {useCameraStream ? (
               <video 
@@ -263,33 +309,26 @@ export default function ScanScreen({
             ) : (
               <img 
                 src={currentImage} 
-                alt="Plante dans le viseur" 
+                alt="Feuille à analyser" 
                 className="web-preview-img"
-               
               />
             )}
 
-            {/* HUD & Brackets de visée */}
             <div className="viewfinder-bracket bracket-tl" />
             <div className="viewfinder-bracket bracket-tr" />
             <div className="viewfinder-bracket bracket-bl" />
             <div className="viewfinder-bracket bracket-br" />
 
-            {/* Le laser de numérisation n'apparaît UNIQUEMENT que lorsqu'une analyse est lancée */}
             {isScanning && <div className="scan-laser-line" />}
 
-            {/* Overlay d'état en direct */}
             <div className="viewfinder-hud-overlay">
               <span className="hud-badge">
-                {useCameraStream ? "● CAMÉRA DIRECTE ACTIVE" : "● LIVE HUD 4K"}
-              </span>
-              <span className="hud-badge">
-                {isScanning ? "NUMÉRISATION EN COURS..." : hasScanned ? "ANALYSE EFFECTUÉE" : "PRÊT À NUMÉRISER"}
+                {useCameraStream ? "● Caméra directe" : "● Aperçu photo"}
               </span>
             </div>
           </div>
 
-          {/* Barre de contrôles sous le viseur */}
+          {/* Boutons Caméra / Galerie */}
           <div className="viewfinder-actions-toolbar">
             <button 
               type="button" 
@@ -297,7 +336,7 @@ export default function ScanScreen({
               onClick={() => setUseCameraStream(!useCameraStream)}
             >
               <Camera size={16} />
-              <span>{useCameraStream ? "Arrêter la caméra" : "Activer la caméra directe"}</span>
+              <span>{useCameraStream ? "Fermer caméra" : "Utiliser caméra"}</span>
             </button>
 
             <button 
@@ -306,7 +345,7 @@ export default function ScanScreen({
               onClick={() => fileInputRef.current?.click()}
             >
               <Upload size={16} />
-              <span>Téléverser une image</span>
+              <span>Choisir une photo</span>
             </button>
 
             <input 
@@ -318,14 +357,14 @@ export default function ScanScreen({
             />
           </div>
 
-          {/* Barre de progression : affichée uniquement en cours de scan ou à la fin */}
-          {isScanning ? (
+          {/* Barre de progression simple */}
+          {isScanning && (
             <div className="web-progress-block">
               <div className="web-progress-labels">
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <Sparkles size={16} className="progress-spinner" color="#10b981" />
                   <span style={{ fontWeight: 600, fontSize: '0.85rem' }}>
-                    Traitement par les réseaux neuronaux PhytoScan...
+                    Examen de la feuille en cours...
                   </span>
                 </div>
                 <span style={{ fontWeight: 800, color: '#10b981', fontSize: '0.9rem' }}>
@@ -336,33 +375,14 @@ export default function ScanScreen({
                 <div className="progress-bar-fill" style={{ width: `${scanProgress}%` }} />
               </div>
             </div>
-          ) : hasScanned ? (
-            <div className="web-progress-block completed">
-              <div className="web-progress-labels">
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <CheckCircle2 size={16} color="#10b981" />
-                  <span style={{ fontWeight: 600, fontSize: '0.85rem', color: '#047857' }}>
-                    Analyse spectrale complétée avec succès
-                  </span>
-                </div>
-                <span style={{ fontSize: '0.78rem', color: '#64748b' }}>Précision {analysisResult.confidence}</span>
-              </div>
-            </div>
-          ) : (
-            <div className="web-progress-block ready-idle">
-              <span style={{ fontSize: '0.84rem', color: '#475569' }}>
-                {useCameraStream 
-                  ? "Cadrez la feuille dans le viseur puis cliquez ci-dessous pour capturer et analyser l'image."
-                  : "Sélectionnez une feuille ci-dessous ou cliquez sur le bouton pour lancer le diagnostic."}
-              </span>
-            </div>
           )}
 
-          {/* Boutons d'action et tests rapides */}
+          {/* Bouton principal */}
           <div className="scan-action-triggers">
             <button 
               type="button" 
               className="web-btn-primary"
+              style={{ width: '100%', justifyContent: 'center' }}
               onClick={() => handleTriggerScan('default')}
               disabled={isScanning}
             >
@@ -371,44 +391,38 @@ export default function ScanScreen({
                 {isScanning 
                   ? "Analyse en cours..." 
                   : useCameraStream
-                    ? "Capturer la photo & lancer le diagnostic IA"
+                    ? "Capturer et analyser"
                     : hasScanned 
-                      ? "Relancer une analyse" 
-                      : "Lancer le diagnostic IA de cette feuille"}
+                      ? "Analyser à nouveau" 
+                      : "Lancer le diagnostic"}
               </span>
             </button>
 
-            <div className="web-quick-tests-row">
-              <span className="quick-tests-label">Échantillons de test :</span>
-              <button 
-                type="button" 
-                className="web-btn-chip-sample"
-                onClick={() => handleSelectSample('infected', '/assets/sample_infected_leaf.jpg')}
+            {/* Menu déroulant discret pour tester un exemple */}
+            <div className="ux-sample-dropdown-row">
+              <select
+                aria-label="Tester avec une image d'exemple"
+                className="ux-sample-select"
+                defaultValue=""
+                onChange={handleSampleDropdown}
+                disabled={isScanning}
               >
-                🍂 Feuille malade (Cercospora)
-              </button>
-              <button 
-                type="button" 
-                className="web-btn-chip-sample healthy"
-                onClick={() => handleSelectSample('healthy', '/assets/comparaison_saine.jpg')}
-              >
-                🌿 Feuille saine (Tomate)
-              </button>
+                <option value="" disabled>Essayer avec un exemple de feuille...</option>
+                <option value="infected">🍂 Exemple : Feuille malade (Ex: Tomate)</option>
+                <option value="healthy">🌿 Exemple : Feuille saine (Ex: Tomate)</option>
+              </select>
             </div>
           </div>
         </div>
 
-        {/* =========================================================
-            COLONNE DROITE : RÉSULTAT DU DIAGNOSTIC & ATLAS COMPARATIF
-            ========================================================= */}
+        {/* COLONNE DROITE : RÉSULTAT CLAIR & PROGRESSIF */}
         <div className="web-scan-right-col">
-          {/* Carte Résultat Principal */}
           {hasScanned || isScanning ? (
             <div className="web-card scan-result-card">
               <div className="result-header-row">
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                   <div className={`status-icon-circle ${analysisResult.status === 'saine' ? 'success' : 'danger'}`}>
-                    {analysisResult.status === 'saine' ? <CheckCircle2 size={22} /> : <ShieldAlert size={22} />}
+                    {analysisResult.status === 'saine' ? <CheckCircle2 size={24} /> : <ShieldAlert size={24} />}
                   </div>
                   <div>
                     <span className={analysisResult.status === 'saine' ? 'web-badge-success' : 'web-badge-danger'}>
@@ -419,37 +433,19 @@ export default function ScanScreen({
                 </div>
 
                 <div className="confidence-gauge-box">
-                  <span className="confidence-label">Degré de certitude</span>
+                  <span className="confidence-label">Fiabilité</span>
                   <span className="confidence-value">{analysisResult.confidence}</span>
                 </div>
               </div>
 
-              {/* Caractéristiques agronomiques du pathogène */}
-              <div className="pathogen-specs-grid">
-                <div className="spec-item">
-                  <span className="spec-label">Agent pathogène</span>
-                  <strong className="spec-val">{analysisResult.pathogen}</strong>
-                </div>
-                <div className="spec-item">
-                  <span className="spec-label">Sévérité estimée</span>
-                  <strong className="spec-val" style={{ color: analysisResult.status === 'saine' ? '#059669' : analysisResult.status === 'surveiller' ? '#d97706' : '#e11d48' }}>
-                    {analysisResult.severity}
-                  </strong>
-                </div>
-                <div className="spec-item">
-                  <span className="spec-label">Temps de calcul</span>
-                  <strong className="spec-val">120 ms (Octopus Neural)</strong>
-                </div>
-              </div>
-
-              {/* Recommandations d'interventions directes */}
+              {/* Action prioritaire (1er conseil) */}
               <div className="remedies-section">
                 <h4 className="remedies-title">
                   <Activity size={17} color="#10b981" />
-                  <span>Protocole d'intervention agronomique recommandé :</span>
+                  <span>{showFullResult ? 'Conseils et actions recommandées :' : 'Action prioritaire recommandée :'}</span>
                 </h4>
                 <ul className="remedies-list">
-                  {analysisResult.remedies?.map((remedy, i) => (
+                  {visibleRemedies.map((remedy, i) => (
                     <li key={i} className="remedy-item">
                       <div className="remedy-bullet">{i + 1}</div>
                       <span>{remedy}</span>
@@ -458,137 +454,168 @@ export default function ScanScreen({
                 </ul>
               </div>
 
-              {/* Actions de navigation immédiates */}
-              <div className="web-action-buttons-group">
-                <button 
-                  type="button" 
-                  className="web-action-btn plants"
-                  onClick={() => onNavigateToPlants && onNavigateToPlants({
-                    plantId: targetPlant ? targetPlant.id : (plants?.[0]?.id || 'P-001'),
-                    disease: analysisResult.diseaseName
-                  })}
-                >
-                  <FolderHeart size={18} />
-                  <div style={{ textAlign: 'left' }}>
-                    <span className="btn-main-txt">Ouvrir le Dossier des Cultures</span>
-                    <span className="btn-sub-txt">Consulter l'historique et la parcelle</span>
+              {/* Détails techniques masqués par défaut */}
+              {showFullResult && (
+                <div className="pathogen-specs-grid">
+                  <div className="spec-item">
+                    <span className="spec-label">Cause identifiée</span>
+                    <strong className="spec-val">{analysisResult.pathogen}</strong>
                   </div>
-                  <ArrowRight size={16} style={{ marginLeft: 'auto' }} />
-                </button>
-
-                <button 
-                  type="button" 
-                  className="web-action-btn assistant"
-                  onClick={() => onNavigateToAssistant && onNavigateToAssistant({
-                    initialQuery: `Comment traiter efficacement la maladie "${analysisResult.diseaseName}" (${analysisResult.pathogen}) détectée lors de mon diagnostic ?`
-                  })}
-                >
-                  <Mic size={18} />
-                  <div style={{ textAlign: 'left' }}>
-                    <span className="btn-main-txt">Demander conseil à l'Assistant Vocal</span>
-                    <span className="btn-sub-txt">Discussion multilingue et remèdes bio</span>
+                  <div className="spec-item">
+                    <span className="spec-label">Niveau de risque</span>
+                    <strong className="spec-val" style={{ color: analysisResult.status === 'saine' ? '#059669' : analysisResult.status === 'surveiller' ? '#d97706' : '#e11d48' }}>
+                      {analysisResult.severity}
+                    </strong>
                   </div>
-                  <ArrowRight size={16} style={{ marginLeft: 'auto' }} />
-                </button>
-              </div>
+                </div>
+              )}
 
-              {/* Bouton d'enregistrement dans le carnet */}
+              {(allRemedies.length > 1 || analysisResult.pathogen) && (
+                <button
+                  type="button"
+                  className="ux-see-more-btn"
+                  onClick={() => setShowFullResult(prev => !prev)}
+                >
+                  {showFullResult ? (
+                    <><ChevronUp size={15} /><span>Masquer les détails</span></>
+                  ) : (
+                    <><ChevronDown size={15} /><span>Voir plus ({allRemedies.length - 1} autre{allRemedies.length - 1 > 1 ? 's' : ''} conseil{allRemedies.length - 1 > 1 ? 's' : ''} & détails)</span></>
+                  )}
+                </button>
+              )}
+
+              {/* Bouton d'enregistrement principal */}
               <button 
                 type="button" 
                 className={`web-btn-save-record ${hasSavedDiagnostic ? 'saved' : ''}`}
                 onClick={handleSaveDiagnostic}
-                disabled={isSavingDiagnostic || hasSavedDiagnostic || (!targetPlant && plants.length === 0)}
+                disabled={isSavingDiagnostic || hasSavedDiagnostic || (!activePlantObj && plants.length === 0)}
               >
                 <BookmarkCheck size={18} />
                 <span>
                   {isSavingDiagnostic
                     ? 'Enregistrement en cours...'
                     : hasSavedDiagnostic
-                    ? "Diagnostic enregistré avec succès dans le carnet de santé !" 
-                    : "Enregistrer ce diagnostic dans le carnet de santé de la plante"}
+                      ? `Enregistré dans la fiche de ${activePlantObj?.name || 'la culture'} !` 
+                      : `Enregistrer dans la fiche (${activePlantObj?.name || 'Culture'})`}
                 </span>
               </button>
               {saveError && <div className="auth-alert-box danger" role="alert">{saveError}</div>}
+
+              {/* Raccourcis secondaires */}
+              <div className="web-action-buttons-group">
+                <button 
+                  type="button" 
+                  className="web-action-btn assistant"
+                  onClick={() => onNavigateToAssistant && onNavigateToAssistant({
+                    initialQuery: `Comment soigner "${analysisResult.diseaseName}" sur ma culture ?`
+                  })}
+                >
+                  <Mic size={18} />
+                  <div style={{ textAlign: 'left' }}>
+                    <span className="btn-main-txt">Demander à l'assistant</span>
+                    <span className="btn-sub-txt">Explications vocales</span>
+                  </div>
+                  <ArrowRight size={16} style={{ marginLeft: 'auto' }} />
+                </button>
+
+                <button 
+                  type="button" 
+                  className="web-action-btn plants"
+                  onClick={() => onNavigateToPlants && onNavigateToPlants({
+                    plantId: activePlantObj?.id || 'P-001',
+                    disease: analysisResult.diseaseName
+                  })}
+                >
+                  <FolderHeart size={18} />
+                  <div style={{ textAlign: 'left' }}>
+                    <span className="btn-main-txt">Voir le dossier</span>
+                    <span className="btn-sub-txt">Historique de la plante</span>
+                  </div>
+                  <ArrowRight size={16} style={{ marginLeft: 'auto' }} />
+                </button>
+              </div>
             </div>
           ) : (
+            /* Guide simple en 3 étapes avant le premier scan */
             <div className="web-card scan-awaiting-card">
               <div className="awaiting-icon-box">
-                <ScanLine size={32} color="#10b981" />
+                <ScanLine size={30} color="#10b981" />
               </div>
-              <h3 className="awaiting-title">Prêt pour le diagnostic phytosanitaire</h3>
-              <p className="awaiting-desc">
-                Le système est en attente. Positionnez une feuille dans le viseur de gauche ou testez un échantillon, puis cliquez sur <strong>« Lancer le diagnostic IA de cette feuille »</strong>.
-              </p>
-              <div style={{ display: 'flex', gap: '10px', marginTop: '6px' }}>
-                <button 
-                  type="button" 
-                  className="web-btn-chip-sample"
-                  onClick={() => handleSelectSample('infected', '/assets/sample_infected_leaf.jpg')}
-                >
-                  🍂 Tester avec une feuille atteinte (Cercospora)
-                </button>
-                <button 
-                  type="button" 
-                  className="web-btn-chip-sample healthy"
-                  onClick={() => handleSelectSample('healthy', '/assets/comparaison_saine.jpg')}
-                >
-                  🌿 Tester avec une feuille saine
-                </button>
+              <h3 className="awaiting-title">Comment faire un diagnostic ?</h3>
+              <div className="ux-scan-steps">
+                <div className="ux-scan-step-item">
+                  <span className="ux-step-num">1</span>
+                  <span>Prenez une photo nette d'une feuille ou choisissez une image à gauche.</span>
+                </div>
+                <div className="ux-scan-step-item">
+                  <span className="ux-step-num">2</span>
+                  <span>Appuyez sur le bouton vert <strong>« Lancer le diagnostic »</strong>.</span>
+                </div>
+                <div className="ux-scan-step-item">
+                  <span className="ux-step-num">3</span>
+                  <span>Découvrez l'état de la plante et enregistrez le résultat dans son carnet.</span>
+                </div>
               </div>
             </div>
           )}
 
-          {/* =========================================================
-              ATLAS COMPARATIF DES SYMPTÔMES FOLIAIRES
-              Images parfaitement cadrées, belles et sans dépassement
-              ========================================================= */}
+          {/* Atlas comparatif repliable pour alléger l'écran */}
           <div className="web-card comparison-web-card">
-            <div className="comparison-header">
-              <h4 className="comparison-card-title">
-                Atlas Comparatif des Symptômes Foliaires
-              </h4>
-              <span className="comparison-subtitle">
-                Référence visuelle haute résolution pour validation terrain
-              </span>
-            </div>
-
-            <div className="web-comparison-grid">
-              {/* Feuille témoin saine */}
-              <div className="web-compare-item">
-                <div className="web-compare-img-wrapper">
-                  <img 
-                    src="/assets/comparaison_saine.jpg" 
-                    alt="Feuille témoin saine" 
-                    className="web-compare-img"
-                  />
-                </div>
-                <div className="web-compare-badge healthy">
-                  <Check size={13} />
-                  <span>Feuille témoin saine</span>
-                </div>
-                <p className="web-compare-desc">
-                  Tissu foliaire vert vigoureux, stomates ouverts, absence de nécrose ou de tache.
-                </p>
+            <button
+              type="button"
+              className="ux-atlas-toggle-btn"
+              onClick={() => setShowAtlas(prev => !prev)}
+              aria-expanded={showAtlas}
+            >
+              <div style={{ textAlign: 'left' }}>
+                <h4 className="comparison-card-title" style={{ margin: 0 }}>
+                  Comparer avec des feuilles témoins
+                </h4>
+                <span className="comparison-subtitle">
+                  Exemple visuel entre une feuille saine et une feuille malade
+                </span>
               </div>
+              {showAtlas ? <ChevronUp size={20} color="#059669" /> : <ChevronDown size={20} color="#059669" />}
+            </button>
 
-              {/* Feuille atteinte */}
-              <div className="web-compare-item">
-                <div className="web-compare-img-wrapper">
-                  <img 
-                    src="/assets/comparaison_malade.jpg" 
-                    alt="Feuille atteinte (Infection active)" 
-                    className="web-compare-img"
-                  />
+            {showAtlas && (
+              <div className="web-comparison-grid" style={{ marginTop: '12px' }}>
+                <div className="web-compare-item">
+                  <div className="web-compare-img-wrapper">
+                    <img 
+                      src="/assets/comparaison_saine.jpg" 
+                      alt="Feuille témoin saine" 
+                      className="web-compare-img"
+                    />
+                  </div>
+                  <div className="web-compare-badge healthy">
+                    <Check size={13} />
+                    <span>Feuille saine</span>
+                  </div>
+                  <p className="web-compare-desc">
+                    Couleur verte uniforme, sans tache ni jaunissement.
+                  </p>
                 </div>
-                <div className="web-compare-badge infected">
-                  <AlertTriangle size={13} />
-                  <span>Feuille atteinte (Infection active)</span>
+
+                <div className="web-compare-item">
+                  <div className="web-compare-img-wrapper">
+                    <img 
+                      src="/assets/comparaison_malade.jpg" 
+                      alt="Feuille atteinte" 
+                      className="web-compare-img"
+                    />
+                  </div>
+                  <div className="web-compare-badge infected">
+                    <AlertTriangle size={13} />
+                    <span>Feuille malade</span>
+                  </div>
+                  <p className="web-compare-desc">
+                    Présence de taches brunes entourées d'un halo jaune.
+                  </p>
                 </div>
-                <p className="web-compare-desc">
-                  Taches circulaires nécrotiques bordées de halos chlorotiques caractéristiques de Cercospora.
-                </p>
               </div>
-            </div>
+            )}
           </div>
         </div>
       </div>

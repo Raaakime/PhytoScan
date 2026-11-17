@@ -168,51 +168,36 @@ export const ASSISTANT_LANGUAGES = [
   { code: "en", name: "English", flag: "🇬🇧" }
 ];
 
+
+const getCurrentTime = () =>
+  new Date().toLocaleTimeString('fr-FR', 'en-EN', 'wo-WO', { hour: '2-digit', minute: '2-digit' });
+
 export const INITIAL_CHAT_MESSAGES = {
   fr: [
     {
       id: "m-1",
       sender: "user",
-      text: "Quelle est la santé de la plante 2 ?",
-      timestamp: "10:22"
+      text: "Bonjour 👋 ! Je suis votre assistant agricole PhytoScan. Je peux vous aider à identifier les maladies des plantes, analyser vos cultures et vous fournir des conseils adaptés. Comment puis-je vous aider aujourd'hui ?",
+      timestamp: getCurrentTime()
     },
-    {
-      id: "m-2",
-      sender: "bot",
-      text: "La plante 2 (Aubergine) présente des premiers signes de maladie (début d'oïdium sur feuilles basses). Je vous conseille d'intervenir rapidement avec un traitement adapté ou du purin de prêle.",
-      timestamp: "10:23",
-      hasAudio: true
-    }
+  
   ],
   wo: [
     {
       id: "m-1",
       sender: "user",
-      text: "Naka la wàllu garab 2 gi deme ?",
-      timestamp: "10:22"
-    },
-    {
-      id: "m-2",
-      sender: "bot",
-      text: "Garab 2 (Batañse) bi dafa tàmbalee feebar ci xob yu suufe yi. Dafa laaj nga defaral ko garab lu gaaw ngir feebar bi bu mu tasaaroo ci yeneen garab yi.",
-      timestamp: "10:23",
-      hasAudio: true
+      text: "Asalaamaalekum 👋! Man maay sa ndimbalkat bu PhytoScan. Mën naa la dimbali ci xam feebari garab yi, settantal sa tool ak jox la ndigël yu mën a jariñ. Lan laa la man a dimbali tey?",
+      timestamp: getCurrentTime()
     }
   ],
   en: [
     {
       id: "m-1",
       sender: "user",
-      text: "What is the health status of plant 2?",
-      timestamp: "10:22"
-    },
-    {
-      id: "m-2",
-      sender: "bot",
-      text: "Plant 2 (Eggplant) is showing early warning signs of disease (early powdery mildew on lower leaves). I recommend acting promptly with an organic fungicide or horsetail extract.",
-      timestamp: "10:23",
-      hasAudio: true
+      text: "Hello 👋! I'm your PhytoScan agricultural assistant. I can help you identify plant diseases, analyze your crops, and provide personalized recommendations. How can I assist you today??",
+      timestamp: getCurrentTime()
     }
+   
   ]
 };
 
@@ -226,7 +211,7 @@ export const SAMPLE_QUESTIONS = {
     "Quels soins sont prévus pour mes plantes ?"
   ],
   wo: [
-    "Naka la wàllu garab 2 gi deme ?",
+    // "Amul garab gu wara Saytu fi léegi ?",
     "Ban garab ñoo feebar leegi ?",
     "Ñaata yoon laay suub xob yi bu tàngoor baree ?",
     "Nan lañuy fajee tàcc yu ñuul ci xobi tomate ?"
