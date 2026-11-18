@@ -15,7 +15,8 @@ import {
   Activity,
   ScanLine,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Plus
 } from 'lucide-react';
 import { analyzePlantImage } from '../services/octopusApi';
 
@@ -489,20 +490,35 @@ export default function ScanScreen({
               )}
 
               {/* Bouton d'enregistrement principal */}
-              <button 
-                type="button" 
+            {plants.length === 0 && (
+                <div className="auth-alert-box">
+                  Aucune culture enregistrée. Créez une culture pour sauvegarder ce diagnostic.
+                </div>
+              )}
+              
+              <button
+                type="button"
                 className={`web-btn-save-record ${hasSavedDiagnostic ? 'saved' : ''}`}
-                onClick={handleSaveDiagnostic}
-                disabled={isSavingDiagnostic || hasSavedDiagnostic || (!activePlantObj && plants.length === 0)}
+                onClick={plants.length === 0 ? () => onNavigateToPlants?.() : handleSaveDiagnostic}
+                disabled={isSavingDiagnostic || hasSavedDiagnostic}
               >
-                <BookmarkCheck size={18} />
-                <span>
-                  {isSavingDiagnostic
-                    ? 'Enregistrement en cours...'
-                    : hasSavedDiagnostic
-                      ? `Enregistré dans la fiche de ${activePlantObj?.name || 'la culture'} !` 
-                      : `Enregistrer dans la fiche (${activePlantObj?.name || 'Culture'})`}
-                </span>
+                {plants.length === 0 ? (
+                  <>
+                    <Plus size={18} />
+                    <span>Créer une culture</span>
+                  </>
+                ) : (
+                  <>
+                    <BookmarkCheck size={18} />
+                    <span>
+                      {isSavingDiagnostic
+                        ? 'Enregistrement en cours...'
+                        : hasSavedDiagnostic
+                          ? `Enregistré dans la fiche de ${activePlantObj?.name || 'la culture'} !`
+                          : `Enregistrer dans la fiche (${activePlantObj?.name})`}
+                    </span>
+                  </>
+                )}
               </button>
               {saveError && <div className="auth-alert-box danger" role="alert">{saveError}</div>}
 
