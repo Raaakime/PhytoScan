@@ -33,12 +33,15 @@ export async function updatePlant(plantId, plantData) {
 
 
 export const savePlantDiagnostic = (plantId, diagnostic) =>
-  apiRequest(`/plants/${encodeURIComponent(plantId)}/diagnostics?lang=fr`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      diseaseName: diagnostic.diseaseName,
-      confidence: diagnostic.confidence,
-      date: diagnostic.date
-    })
-  });
+  apiRequest(
+    `/scan/${encodeURIComponent(diagnostic.analysisId)}/save?lang=fr`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        plant_id: plantId
+      })
+    }
+  );
