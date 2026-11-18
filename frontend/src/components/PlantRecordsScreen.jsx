@@ -27,7 +27,7 @@ import { INITIAL_PLANTS } from '../data/mockData';
 import { ClimateAgronomyPanel, ClimateHistoryHint, ClimateCarePanel } from '../components/ClimatePanels';
 import { useClimateRisks } from '../hooks/useClimateRisks';
 
-const API_BASE_URL = "http://onrender.com";
+const API_BASE_URL = "https://phytoscan-sn.onrender.com";
 
 const getPlantImage = (plant) => {
   const imagePath =
