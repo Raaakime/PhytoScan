@@ -492,7 +492,7 @@ export default function ScanScreen({
               {/* Bouton d'enregistrement principal */}
             {plants.length === 0 && (
                 <div className="auth-alert-box">
-                  Aucune culture enregistrée. Créez une culture pour sauvegarder ce diagnostic.
+                  Aucune culture enregistrée. Créez une culture pour faire des diagnostics.
                 </div>
               )}
               
