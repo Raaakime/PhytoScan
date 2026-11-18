@@ -150,16 +150,18 @@ export default function ScanScreen({
       setTimeout(() => {
         setIsScanning(false);
         setHasScanned(true);
-        setAnalysisResult({
-          status: result.status,
-          statusLabel: result.statusLabel,
-          diseaseName: result.diseaseName,
-          confidence: `${result.confidence}%`,
-          pathogen: result.pathogen,
-          severity: result.severity,
-          remedies: result.recommendations,
-          comparison: result.comparison
-        });
+         setAnalysisResult({
+              analysisId: result.analysisId,
+              imageUrl: result.imageUrl,
+              status: result.status,
+              statusLabel: result.statusLabel,
+              diseaseName: result.diseaseName,
+              confidence: result.confidence,
+              pathogen: result.pathogen,
+              severity: result.severity,
+              remedies: result.recommendations,
+              comparison: result.comparison
+});
       }, 350);
     } catch (err) {
       clearInterval(pInterval);
@@ -207,13 +209,15 @@ export default function ScanScreen({
     try {
       await onSaveDiagnosticToPlant({
         plantId: plantIdToSave,
+        analysisId: analysisResult.analysisId,
+        imageUrl: analysisResult.imageUrl,  
         status: analysisResult.status,
         statusLabel: analysisResult.statusLabel,
         diseaseName: analysisResult.diseaseName,
         confidence: analysisResult.confidence,
         remedies: analysisResult.remedies,
         date: new Date().toLocaleDateString('fr-FR')
-      });
+});
       setHasSavedDiagnostic(true);
     } catch (error) {
       setSaveError(error.message);
