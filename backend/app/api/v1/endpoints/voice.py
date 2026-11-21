@@ -1,65 +1,47 @@
-"""API de conversation vocale en mode Push-to-Talk."""
+"""Assistant vocal : état, question parlée (micro) et lecture à voix haute d'un texte, en français, anglais et wolof."""
 from typing import Optional
 
-from fastapi import APIRouter, Depends, File, Form, UploadFile
+from fastapi import APIRouter, Depends, File, Form, Response, UploadFile
 from sqlalchemy.orm import Session
-import base64
-from app.voice.wolof import audio, engine
-from pydantic import BaseModel
-from app.api.deps import get_current_user, require_user
+
+from app.api.deps import require_user
 from app.db.session import get_db
 from app.models import User
-from app.schemas.assistant import VoiceChatResponse, VoiceStatusResponse
-from app.services import voice_service, wolof_voice_service
-from app.voice.wolof import engine as wolof_engine
+from app.schemas.voice import SpeechRequest, VoiceChatResponse, VoiceStatusResponse
+from app.services import voice_service
+from app.voice.pipeline import VoicePipeline
 
 router = APIRouter(prefix="/voice", tags=["Assistant vocal"])
 
 
 @router.get("/status", response_model=VoiceStatusResponse)
-def status():
-    return voice_service.voice_status()
+def status(pipeline: VoicePipeline = Depends(voice_service.get_voice_pipeline)):
+    """Ce que le serveur sait faire, langue par langue (le front masque ce qui n'est pas disponible)."""
+    return voice_service.voice_status(pipeline)
 
 
 @router.post("/chat", response_model=VoiceChatResponse)
 def chat(
-    audio: UploadFile = File(...),
-    language: str = Form("fr"),
+    audio: UploadFile = File(..., description="Enregistrement du navigateur : WebM, MP4/M4A, Ogg, WAV ou MP3."),
+    language: str = Form("fr", description="fr | en | wo"),
     session_id: Optional[str] = Form(None, max_length=60),
     user: User = Depends(require_user),
     db: Session = Depends(get_db),
+    pipeline: VoicePipeline = Depends(voice_service.get_voice_pipeline),
 ):
-    return voice_service.process_voice_message(db, audio, language, session_id, user)
+    """Question parlée -> transcription -> réponse de l'assistant -> réponse parlée (JSON, audio en base64)."""
+    return voice_service.voice_chat(pipeline, db, audio.file, language, session_id, user)
 
 
-# ------------------------------------------------------------------ Wolof (modèles ouverts hébergés ici)
-@router.get("/wolof/status")
-def wolof_status():
-    """Indique si la voix wolof est activée et quels modèles sont configurés."""
-    return wolof_engine.info()
-
-
-@router.post("/wolof/chat", response_model=VoiceChatResponse)
-def wolof_chat(
-    audio: UploadFile = File(...),
-    session_id: Optional[str] = Form(None, max_length=60),
-    user: Optional[User] = Depends(get_current_user),
-    db: Session = Depends(get_db),
+@router.post("/speech", response_class=Response, responses={200: {"content": {"audio/mpeg": {}, "audio/wav": {}}}})
+def speech(
+    body: SpeechRequest,
+    user: User = Depends(require_user),
+    pipeline: VoicePipeline = Depends(voice_service.get_voice_pipeline),
 ):
-    return wolof_voice_service.process_wolof_message(db, audio, session_id, user)
-
-
-
-class WolofTtsRequest(BaseModel):
-  text: str
-
-
-
-@router.post("/wolof/tts")
-def wolof_tts(payload: WolofTtsRequest):
-  wave, rate = engine.synthesize(payload.text)
-  wav_bytes = audio.to_wav_bytes(wave, rate)
-  return {
-      "audioBase64": base64.b64encode(wav_bytes).decode("ascii"),
-      "audioMimeType": "audio/wav",
-  }
+    """Lit un texte à voix haute (bouton « Écouter »). Le texte long est coupé à la dernière phrase entière."""
+    audio, truncated = pipeline.speak(body.text, body.language, user)
+    headers = {"Cache-Control": "no-store"}
+    if truncated:
+        headers["X-Audio-Truncated"] = "true"
+    return Response(content=audio.content, media_type=audio.mime_type, headers=headers)

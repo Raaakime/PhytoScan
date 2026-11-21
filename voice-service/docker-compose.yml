@@ -1,0 +1,21 @@
+# Premier démarrage :
+#   export VOICE_SERVICE_API_TOKEN=$(openssl rand -hex 32)
+#   docker compose run --rm voice-service python scripts/prefetch_models.py   # télécharge ~2 Go dans le volume
+#   docker compose up -d
+services:
+  voice-service:
+    build: .
+    restart: unless-stopped
+    environment:
+      VOICE_SERVICE_API_TOKEN: ${VOICE_SERVICE_API_TOKEN:?Définissez VOICE_SERVICE_API_TOKEN}
+      VOICE_SERVICE_DEVICE: ${VOICE_SERVICE_DEVICE:-cpu}
+      VOICE_SERVICE_MAX_CONCURRENT: ${VOICE_SERVICE_MAX_CONCURRENT:-2}
+      HF_HUB_OFFLINE: "1"            # après le préchargement : plus aucun accès réseau au démarrage
+    volumes:
+      - voice-models:/models
+    ports:
+      - "127.0.0.1:8080:8080"        # n'exposez PAS ce port sur Internet : seul le backend PhytoScan l'appelle
+    mem_limit: 4g
+
+volumes:
+  voice-models:

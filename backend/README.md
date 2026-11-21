@@ -61,36 +61,66 @@ envoient également ce jeton lorsqu'une session existe.
 
 Langue : ajouter `?lang=fr|wo|en` à chaque requête (sinon l'en-tête `Accept-Language`, puis le français).
 
-## Assistant vocal Push-to-Talk
+## Assistant vocal (français, anglais, wolof)
 
-Le parcours vocal utilise l'API FastAPI, sans envoyer de clé fournisseur au navigateur :
+```
+ navigateur ──audio (WebM/MP4)──▶  POST /voice/chat ──▶  décodage + validation (PyAV, WAV 16 kHz)
+   (micro)                                                      │
+                                                               ▼
+              fr / en : API compatible OpenAI (STT)      wo : microservice voice-service (STT)
+                                                               │
+                              assistant_service.ask (réponses guidées, historique du compte)
+                                                               │
+              fr / en : OpenAI TTS ou ElevenLabs         wo : microservice voice-service (TTS)
+                                                               ▼
+ navigateur ◀── JSON { transcript, text, audioBase64, audioError } ──
+```
 
-1. `GET /phytoscan/v1/voice/status` indique si les fournisseurs sont configurés.
-2. `POST /phytoscan/v1/voice/chat` reçoit `audio` (multipart), `language` (`fr` ou `en`) et un `session_id` facultatif.
-3. Le serveur valide le conteneur, le type MIME, la taille et la durée, transmet l'audio à OpenAI STT, réutilise `assistant_service.ask`, puis demande l'audio de réponse à ElevenLabs.
-4. La réponse contient `transcript`, `text`, `sessionId` et `audioBase64` (MP3). L'audio n'est pas conservé sur disque.
+| Route | Rôle |
+|---|---|
+| `GET /voice/status` | Ce qui est disponible, **langue par langue** (`stt` = micro, `tts` = lecture). Le front masque le reste. |
+| `POST /voice/chat` | Question parlée (`audio`, `language` = `fr`/`en`/`wo`, `session_id` facultatif) → transcription, réponse écrite, réponse parlée. |
+| `POST /voice/speech` | Lit un texte à voix haute (bouton « Écouter »). Texte coupé à la dernière phrase entière au-delà de `VOICE_TTS_MAX_CHARS`. |
 
-Installer les dépendances, puis ajouter au fichier `.env` :
+Garanties du module :
+
+- **Authentification obligatoire** sur `/voice/chat` et `/voice/speech` (même avec `AUTH_REQUIRED=false`), car ces routes coûtent de l'argent ou du calcul.
+- **Quotas par utilisateur** (`VOICE_RATE_LIMIT_PER_MINUTE`, `VOICE_DAILY_QUOTA`) → `429` + `Retry-After`. **Plafond de concurrence** (`VOICE_MAX_CONCURRENT`) → `503` + `Retry-After` plutôt que de bloquer l'API. Ces compteurs sont en mémoire et propres à chaque processus : avec N workers uvicorn, le plafond réel est multiplié par N (passer à Redis si besoin).
+- **Audio contrôlé avant tout appel payant** : format reconnu d'après les premiers octets, taille, durée (mesurée en décodant : les WebM de Chrome/Firefox n'ont pas de durée dans l'en-tête), silence, niveau normalisé. Les moteurs reçoivent toujours du WAV 16 kHz mono.
+- **La voix est un confort** : si la synthèse échoue, la réponse écrite est quand même renvoyée avec `audioError`.
+- **Rien n'est conservé** : ni l'audio envoyé, ni l'audio généré (cache mémoire LRU borné). La transcription et la réponse écrite sont enregistrées dans l'historique du compte, comme le chat écrit.
+- **Transcriptions adaptées à l'assistant** : « plante deux » devient « plante 2 » (français, anglais, wolof).
+- **Lecture adaptée à l'oreille** : « 74/100 » → « 74 sur 100 », dates, pourcentages, noms latins retirés, nombres lus en wolof.
+- Journaux `phytoscan.voice` : durées par étape et statuts des fournisseurs (jamais le contenu des échanges).
+
+### Français et anglais
 
 ```env
 VOICE_ENABLED=true
-VOICE_STT_PROVIDER=openai
-VOICE_TTS_PROVIDER=elevenlabs
-OPENAI_API_KEY=...
-OPENAI_STT_MODEL=gpt-transcribe
-ELEVENLABS_API_KEY=...
-ELEVENLABS_VOICE_ID=...
-ELEVENLABS_TTS_MODEL=eleven_v4_turbo
-VOICE_MAX_AUDIO_MB=8
-VOICE_MAX_AUDIO_SECONDS=60
-VOICE_PROVIDER_TIMEOUT_SECONDS=45
+VOICE_OPENAI_API_KEY=sk-...
+VOICE_STT_MODEL=gpt-4o-mini-transcribe
+VOICE_TTS_MODEL=gpt-4o-mini-tts
+VOICE_TTS_VOICE=nova
 ```
 
-Le service vocal reste désactivé si `VOICE_ENABLED=false` ou si une clé/voix requise manque ; l'assistant textuel continue de fonctionner. L'endpoint vocal exige une session authentifiée, même si `AUTH_REQUIRED=false`, afin de limiter l'utilisation anonyme des API facturées. Les enregistrements sont transmis à OpenAI et ElevenLabs et ne sont pas persistés localement ; la transcription et la réponse textuelle restent dans l'historique chat du compte. Le Push-to-Talk est limité au français et à l'anglais ; le wolof reste disponible par écrit, sans prétendre à une reconnaissance ou une voix wolof fiables. La réponse vocale utilise le moteur à règles existant, pas un LLM, et ne tient donc pas compte d'un historique conversationnel au-delà de l'identifiant de session enregistré.
+`VOICE_OPENAI_BASE_URL` accepte toute passerelle qui expose `/audio/transcriptions` et `/audio/speech`. Pour une voix ElevenLabs : `VOICE_TTS_PROVIDER=elevenlabs` + `ELEVENLABS_API_KEY` + `ELEVENLABS_VOICE_ID`. **Vérifiez les noms de modèles et les tarifs chez votre fournisseur avant la mise en production** : ils changent régulièrement. Les consignes de diction (`VOICE_TTS_INSTRUCTIONS_FR/EN`) ne sont comprises que par les modèles qui les gèrent (laisser vide pour `tts-1`).
 
-Aux tarifs affichés lors de l'intégration, 10 secondes de transcription coûtent environ 0,00075 $ avec OpenAI `gpt-transcribe`, et 1 000 caractères de réponse environ 0,04 $ avec ElevenLabs v4 Turbo (hors taxes, quota/plan fournisseur et coût d'hébergement). Le coût fournisseur estimatif est donc d'environ 0,041 $ pour une réponse de 1 000 caractères. Vérifier les tarifs avant mise en production : [OpenAI STT](https://developers.openai.com/api/docs/models/gpt-transcribe), [ElevenLabs API](https://elevenlabs.io/pricing/api).
+À savoir : l'audio des utilisateurs est transmis au fournisseur choisi (hors de l'UE pour OpenAI/ElevenLabs). Informez les utilisateurs et vérifiez la conformité avec la réglementation sur les données personnelles applicable à votre déploiement.
 
-Le frontend nécessite l'accès au microphone via HTTPS (ou `localhost`) et une prise en charge navigateur de `MediaRecorder`. Exécuter `python -m pytest` pour les tests backend ; les fournisseurs sont simulés pendant les tests.
+### Wolof
+
+Aucune API cloud grand public ne gère correctement le wolof. La reconnaissance et la synthèse tournent donc dans un **microservice dédié** (dossier [`voice-service/`](../voice-service/README.md)) avec des modèles ouverts. Le backend ne fait que l'appeler :
+
+```env
+VOICE_WOLOF_SERVICE_URL=http://voice-service:8080
+VOICE_WOLOF_SERVICE_TOKEN=le-même-jeton-que-le-microservice
+```
+
+Sans `VOICE_WOLOF_SERVICE_URL`, le wolof reste utilisable par écrit uniquement ; le front le sait grâce à `/voice/status`. Le backend vérifie la disponibilité du microservice (`/ready`, mis en cache 15 s).
+
+### Tests
+
+`python -m pytest tests/test_voice_*.py` : aucun appel réseau (faux moteurs et `httpx.MockTransport`). Les tests couvrent l'audio (dont un WebM sans durée d'en-tête, comme Chrome), le texte, les quotas, les fournisseurs et l'API de bout en bout.
 
 ## Migrations (Alembic)
 
@@ -149,6 +179,7 @@ app/
   services/  logique métier
   api/       dépendances + routes v1
   ml/        classifieurs (mock / custom), prétraitement, labels
+  voice/     assistant vocal : audio, texte, fournisseurs, quotas, pipeline
   utils/     stockage des images
 ```
 

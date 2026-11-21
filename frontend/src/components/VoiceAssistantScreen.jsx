@@ -1,11 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { 
-  Mic, 
-  MicOff, 
-  Send, 
-  Volume2, 
-  VolumeX, 
-  Bell, 
+import { useState, useEffect, useRef, useCallback } from 'react';
+import {
+  Send,
+  Volume2,
+  VolumeX,
+  Bell,
   Leaf,
   Camera,
   FolderHeart,
@@ -19,22 +17,45 @@ import {
   ChevronDown,
   ChevronUp
 } from 'lucide-react';
-import { 
-  ASSISTANT_LANGUAGES, 
-  INITIAL_CHAT_MESSAGES, 
-  SAMPLE_QUESTIONS 
+import {
+  ASSISTANT_LANGUAGES,
+  INITIAL_CHAT_MESSAGES,
+  SAMPLE_QUESTIONS
 } from '../data/mockData';
-import { askOctopusAssistant, sendWolofVoice, getWolofVoiceStatus, audioSrcFromResponse } from '../services/octopusApi';
-import { useBrowserVoice } from '../hooks/useBrowserVoice';
-import { useWolofRecorder } from '../hooks/useWolofRecorder';
+import { askOctopusAssistant } from '../services/octopusApi';
+import { base64ToBlob } from '../services/voiceApi';
+import { voiceCopyFor } from '../data/voiceCopy';
+import { useAudioPlayer } from '../hooks/useAudioPlayer';
+import { useVoiceConsent } from '../hooks/useVoiceConsent';
+import { useVoiceConversation } from '../hooks/useVoiceConversation';
+import { useVoiceStatus } from '../hooks/useVoiceStatus';
+import ListenButton from './voice/ListenButton';
+import MicButton from './voice/MicButton';
+import VoiceNotice from './voice/VoiceNotice';
+import VoiceStatusBar from './voice/VoiceStatusBar';
 import WeatherRiskCard from '../components/WeatherRiskCard';
 import { useClimateRisks } from '../hooks/useClimateRisks';
-import {synthesizeWolofText} from '../services/octopusApi'
+
+const nowLabel = () => new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+/** Erreur (code, objet { code } ou Error de l'API) -> bandeau affichable, dans la langue de l'écran. */
+function noticeForError(copy, error) {
+  if (!error) return null;
+  if (typeof error === 'string') return { kind: 'error', message: copy.errors[error] || copy.errors.generic };
+  if (error.code === 'login' || error.status === 401) return { kind: 'login' };
+  if (error.code) return { kind: 'error', message: copy.errors[error.code] || copy.errors.generic };
+  if (error.status === 429) return { kind: 'error', message: copy.errors.rateLimited };
+  if ([502, 503, 504].includes(error.status)) return { kind: 'error', message: copy.errors.unavailable };
+  if (error.status === undefined && error.name !== 'Error') return { kind: 'error', message: copy.errors.generic };
+  return { kind: 'error', message: error.message || copy.errors.generic };
+}
 
 export default function VoiceAssistantScreen({
   plants = [],
   alerts = null,
   initialQuery = '',
+  isAuthenticated = false,
+  onRequireLogin,
   onClearInitialQuery,
   onNavigateToScan,
   onNavigateToPlants,
@@ -45,101 +66,87 @@ export default function VoiceAssistantScreen({
   const [inputText, setInputText] = useState('');
   const [isThinking, setIsThinking] = useState(false);
   const [isSwitchingLang, setIsSwitchingLang] = useState(false);
-  const [voiceNotice, setVoiceNotice] = useState('');
+  const [notice, setNotice] = useState(null);   // { kind: 'consent' | 'login' | 'info' | 'error', message? }
   const [showAllAlerts, setShowAllAlerts] = useState(false);
   const climate = useClimateRisks(plants);
-
-  // Voix navigateur (fr / en)
-  const {
-    listening: isListening, speaking: isSpeaking,
-    start: startListening, stop: stopListening, speak, stopSpeaking,
-    canListen, canSpeak
-  } = useBrowserVoice({
-    language: currentLang,
-    onFinalText: (text) => sendMessage(text),
-    onError: setVoiceNotice
-  });
-
-  // Voix serveur pour le Wolof
-  const [wolofVoice, setWolofVoice] = useState({ enabled: false });
-  const [voiceSessionId, setVoiceSessionId] = useState(null);
-  const [isPlayingAudio, setIsPlayingAudio] = useState(false);
-  const audioPlayerRef = useRef(null);
-
-  const nowLabel = () => new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-  const stopAudio = () => {
-    if (audioPlayerRef.current) {
-      audioPlayerRef.current.pause();
-      audioPlayerRef.current = null;
-    }
-    setIsPlayingAudio(false);
-  };
-
-  const playAudio = (src) => {
-    if (!src) return;
-    stopAudio();
-    const player = new Audio(src);
-    audioPlayerRef.current = player;
-    player.onplay = () => setIsPlayingAudio(true);
-    player.onended = () => setIsPlayingAudio(false);
-    player.onerror = () => setIsPlayingAudio(false);
-    player.play().catch(() => setIsPlayingAudio(false));
-  };
-
-  const sendWolofAudio = async (blob) => {
-    setIsThinking(true);
-    try {
-      const result = await sendWolofVoice(blob, voiceSessionId);
-      if (result.sessionId) setVoiceSessionId(result.sessionId);
-      const audioSrc = audioSrcFromResponse(result);
-      setMessages(prev => [
-        ...prev,
-        { id: `u-${Date.now()}`, sender: 'user', text: result.transcript, timestamp: nowLabel() },
-        { id: `b-${Date.now()}`, sender: 'bot', text: result.text, timestamp: result.timestamp || nowLabel(),
-          hasAudio: Boolean(audioSrc), audioSrc }
-      ]);
-      if (audioSrc) playAudio(audioSrc);
-      else if (result.audioError) setVoiceNotice(result.audioError);
-    } catch (error) {
-      setMessages(prev => [
-        ...prev,
-        { id: `e-${Date.now()}`, sender: 'bot', timestamp: nowLabel(), hasAudio: false,
-          text: error?.message || "Désolé, la voix en wolof est momentanément indisponible. Écrivez votre question." }
-      ]);
-    } finally {
-      setIsThinking(false);
-    }
-  };
-
-  const {
-    recording: isRecordingWo, start: startRecording, stop: stopRecording, canRecord: canRecordWo
-  } = useWolofRecorder({ onRecorded: sendWolofAudio, onError: setVoiceNotice });
-
-  useEffect(() => {
-    getWolofVoiceStatus().then(setWolofVoice);
-  }, []);
-
-  const isWolof = currentLang === 'wo';
- const wolofServerReady = Boolean(wolofVoice?.enabled || wolofVoice?.hf_space_url);
-  const micAvailable = isWolof ? (wolofServerReady && canRecordWo) : canListen;
-
-  const micActive = isWolof ? isRecordingWo : isListening;
-  const waveformActive = isListening || isSpeaking || isThinking || isRecordingWo || isPlayingAudio;
-
   const chatBottomRef = useRef(null);
 
-  // Changement de langue avec réflexion visuelle et réinitialisation du chat
+  // --- voix -----------------------------------------------------------------------------------------
+  const copy = voiceCopyFor(currentLang);
+  const voiceStatus = useVoiceStatus();
+  const consent = useVoiceConsent();
+  const capabilities = voiceStatus.capabilities(currentLang);
+  const serverHasVoice = ['fr', 'en', 'wo'].some((code) => voiceStatus.capabilities(code).stt);
+
+  const player = useAudioPlayer({ onError: (error) => setNotice(noticeForError(copy, error)) });
+
+  // Réponse d'une question parlée : on l'ajoute au fil et on la lit tout de suite.
+  const handleVoiceTurn = useCallback((result) => {
+    const timestamp = result.timestamp || nowLabel();
+    const botId = `b-${Date.now()}`;
+    setMessages((previous) => [
+      ...previous,
+      { id: `u-${Date.now()}`, sender: 'user', text: result.transcript, timestamp },
+      { id: botId, sender: 'bot', text: result.text, timestamp },
+    ]);
+    if (result.audioBase64 && result.audioMimeType) {
+      const blob = base64ToBlob(result.audioBase64, result.audioMimeType);
+      player.remember(botId, blob);
+      player.playBlob(botId, blob);
+    } else if (result.audioError) {
+      setNotice({ kind: 'info', message: `${result.audioError} ${copy.audioUnavailableNote}` });
+    }
+  }, [player, copy]);
+
+  const voice = useVoiceConversation({
+    language: currentLang,
+    maxRecordingSeconds: voiceStatus.maxRecordingSeconds,
+    onTurn: handleVoiceTurn,
+  });
+
+  const micBlocked = voiceStatus.loading || !capabilities.stt || !voice.supported;
+  const playing = player.active.state === 'playing';
+
+  const statusText = voice.phase === 'requesting' ? copy.micRequesting
+    : voice.phase === 'recording' ? copy.micRecording
+      : voice.phase === 'processing' || isThinking ? copy.micProcessing
+        : playing ? copy.micPlaying
+          : voiceStatus.loading ? copy.micLoading
+            : !capabilities.stt ? (serverHasVoice ? copy.micUnavailableLanguage : copy.micUnavailable)
+              : !voice.supported ? copy.errors.unsupported
+                : copy.micReady;
+
+  const handleMicClick = () => {
+    setNotice(null);
+    if (voice.phase === 'recording') {
+      voice.toggle();                       // 2e appui : envoie la question
+      return;
+    }
+    if (!isAuthenticated) { setNotice({ kind: 'login' }); return; }
+    if (!consent.given) { setNotice({ kind: 'consent' }); return; }
+    player.stop();
+    player.prime();                         // déverrouille la lecture automatique de la réponse (iOS)
+    voice.toggle();
+  };
+
+  const handleConsentAccepted = () => {
+    consent.accept();
+    setNotice(null);
+    player.prime();
+    voice.toggle();
+  };
+
+  const shownNotice = voice.error ? noticeForError(copy, voice.error) : notice;
+  const canListen = isAuthenticated && capabilities.tts;
+
+  // --- langue ---------------------------------------------------------------------------------------
   const handleLanguageChange = (newLang) => {
     if (newLang === currentLang) return;
-    stopSpeaking();
-    stopAudio();
-    if (isListening) stopListening();
-    if (isRecordingWo) stopRecording();
+    player.stop();
+    voice.reset();
 
     setCurrentLang(newLang);
-    setVoiceNotice('');
-    setVoiceSessionId(null);
+    setNotice(null);
     setIsSwitchingLang(true);
     setIsThinking(true);
     setMessages([]);
@@ -151,98 +158,49 @@ export default function VoiceAssistantScreen({
     }, 550);
   };
 
-  useEffect(() => {
-    if (initialQuery && initialQuery.trim()) {
-      sendMessage(initialQuery);
-      if (onClearInitialQuery) onClearInitialQuery();
-    }
-  }, [initialQuery]);
-
-  useEffect(() => {
-    chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, waveformActive, isSwitchingLang]);
-
-  const speakText = (text) => speak(text);
-
-  const toggleListening = () => {
-    setVoiceNotice('');
-    if (isWolof) {
-      if (isRecordingWo) {
-        stopRecording();
-      } else {
-        stopAudio();
-        startRecording();
-      }
-      return;
-    }
-    if (isListening) {
-      stopListening();
-      return;
-    }
-    stopSpeaking();
-    startListening();
-  };
-
-  const sendMessage = async (textToSend) => {
+  // --- texte ----------------------------------------------------------------------------------------
+  const sendMessage = useCallback(async (textToSend) => {
     const query = textToSend || inputText;
     if (!query.trim()) return;
 
-    const userMsg = {
-      id: `u-${Date.now()}`,
-      sender: 'user',
-      text: query,
-      timestamp: nowLabel()
-    };
-
-    setMessages(prev => [...prev, userMsg]);
+    setMessages(prev => [...prev, { id: `u-${Date.now()}`, sender: 'user', text: query, timestamp: nowLabel() }]);
     setInputText('');
+    setNotice(null);
     setIsThinking(true);
 
     try {
       const botReply = await askOctopusAssistant(query, currentLang, climate.context);
-      let wolofAudioSrc = null;
-
-      if (isWolof && botReply.text) {
-        try {
-          wolofAudioSrc = await synthesizeWolofText(botReply.text);
-        } catch {
-          setVoiceNotice("Réponse texte affichée (audio wolof indisponible).");
-        }
-      }
-
       setMessages(prev => [
         ...prev,
-        {
-          id: `b-${Date.now()}`,
-          sender: 'bot',
-          text: botReply.text,
-          timestamp: botReply.timestamp || nowLabel(),
-          hasAudio: isWolof ? Boolean(wolofAudioSrc) : canSpeak,
-          audioSrc: wolofAudioSrc
-        }
+        { id: `b-${Date.now()}`, sender: 'bot', text: botReply.text, timestamp: botReply.timestamp || nowLabel() }
       ]);
-
-      if (isWolof) {
-        if (wolofAudioSrc) playAudio(wolofAudioSrc);
-      } else {
-        speakText(botReply.text);
-      }
     } catch (error) {
       setMessages(prev => [
         ...prev,
         {
           id: `e-${Date.now()}`,
           sender: 'bot',
+          isError: true,
           text: error?.message || "Désolé, l'assistant est momentanément indisponible. Réessayez dans un instant.",
-          timestamp: nowLabel(),
-          hasAudio: false
+          timestamp: nowLabel()
         }
       ]);
     } finally {
       setIsThinking(false);
     }
-  };
+  }, [inputText, currentLang, climate.context]);
 
+  useEffect(() => {
+    if (initialQuery && initialQuery.trim()) {
+      sendMessage(initialQuery);
+      if (onClearInitialQuery) onClearInitialQuery();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialQuery]);
+
+  useEffect(() => {
+    chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, isThinking, voice.phase, isSwitchingLang]);
 
   const activeLangObj = ASSISTANT_LANGUAGES.find(l => l.code === currentLang) || ASSISTANT_LANGUAGES[0];
   const dynamicAlerts = alerts || (plants || []).filter(p => p.status !== 'saine' || Boolean(p.alert));
@@ -277,7 +235,7 @@ export default function VoiceAssistantScreen({
             className="ux-lang-select"
             value={currentLang}
             onChange={(e) => handleLanguageChange(e.target.value)}
-            disabled={isListening || isRecordingWo}
+            disabled={voice.phase !== 'idle'}
           >
             {ASSISTANT_LANGUAGES.map((lang) => (
               <option style={{fontWeight:'600'}} key={lang.code} value={lang.code}>
@@ -307,8 +265,8 @@ export default function VoiceAssistantScreen({
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <span className="audio-voice-badge">
-                {canSpeak ? <Volume2 size={14} /> : <VolumeX size={14} />}
-                {canSpeak ? ' Réponse vocale' : ' Mode texte'}
+                {capabilities.tts ? <Volume2 size={14} /> : <VolumeX size={14} />}
+                {capabilities.tts ? ' Réponse vocale' : ' Mode texte'}
               </span>
             </div>
           </div>
@@ -338,15 +296,14 @@ export default function VoiceAssistantScreen({
                       <p>{msg.text}</p>
                       <div className="bubble-bot-footer">
                         <span className="bubble-timestamp">{msg.timestamp}</span>
-                        {msg.hasAudio && (
-                          <button 
-                            type="button" 
-                            className="web-btn-listen"
-                            onClick={() => (msg.audioSrc ? playAudio(msg.audioSrc) : speakText(msg.text))}
-                          >
-                            <Volume2 size={13} />
-                            <span>Écouter</span>
-                          </button>
+                        {canListen && !msg.isError && msg.text && (
+                          <ListenButton
+                            id={msg.id}
+                            text={msg.text}
+                            language={currentLang}
+                            player={player}
+                            copy={copy}
+                          />
                         )}
                       </div>
                     </div>
@@ -369,49 +326,37 @@ export default function VoiceAssistantScreen({
             <div ref={chatBottomRef} />
           </div>
 
-          {/* Barre audio simplifiée */}
-          <div className={`web-waveform-box ${waveformActive ? 'active' : ''}`}>
-            <span className="waveform-info-txt">
-              {micActive
-                ? (isWolof ? "Parlez maintenant... cliquez sur le micro pour envoyer" : "Je vous écoute...")
-                : (isSpeaking || isPlayingAudio)
-                  ? "Lecture vocale en cours..."
-                  : isThinking
-                    ? "L'assistant réfléchit..."
-                    : micAvailable
-                      ? "Cliquez sur le micro vert pour parler"
-                      : "Saisie par clavier disponible"}
-            </span>
-            <div className="web-waveform-bars">
-              <div className="web-wave-bar" />
-              <div className="web-wave-bar" />
-              <div className="web-wave-bar" />
-              <div className="web-wave-bar" />
-              <div className="web-wave-bar" />
-              <div className="web-wave-bar" />
-            </div>
-          </div>
+          {/* État de la voix : niveau réel du micro pendant l'enregistrement */}
+          <VoiceStatusBar
+            phase={voice.phase}
+            level={voice.level}
+            elapsed={voice.elapsed}
+            maxSeconds={voice.maxSeconds}
+            playing={playing || isThinking}
+            text={statusText}
+          />
 
-          {(voiceNotice || !micAvailable) && (
-            <p role="status" style={{ margin: '0 4px', fontSize: '0.82rem', color: '#b45309' }}>
-              {voiceNotice || (isWolof
-                ? "Micro Wolof indisponible sur cet appareil : écrivez votre question ci-dessous."
-                : "Micro indisponible sur ce navigateur : écrivez votre question ci-dessous.")}
-            </p>
+          {shownNotice && (
+            <VoiceNotice
+              kind={shownNotice.kind}
+              message={shownNotice.message}
+              copy={copy}
+              onAccept={handleConsentAccepted}
+              onDismiss={() => setNotice(null)}
+              onLogin={() => onRequireLogin?.()}
+            />
           )}
 
           {/* Zone de saisie + Micro */}
           <div className="web-chat-input-section">
             <div className="web-input-bar">
-              <button 
-                type="button" 
-                className={`web-btn-mic-toggle ${micActive ? 'listening' : ''}`}
-                onClick={toggleListening}
-                disabled={!micAvailable || (isThinking && !micActive)}
-                title={micActive ? "Envoyer l'enregistrement" : "Parler au micro"}
-              >
-                {micActive ? <MicOff size={22} /> : <Mic size={22} />}
-              </button>
+              <MicButton
+                phase={voice.phase}
+                disabled={micBlocked || isThinking}
+                copy={copy}
+                onToggle={handleMicClick}
+                onCancel={voice.cancel}
+              />
 
               <form 
                 onSubmit={(e) => {
