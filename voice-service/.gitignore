@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+.env
+# Sorties de scripts/check_models.py et corpus d'évaluation (enregistrements d'utilisateurs : ne jamais les versionner)
+samples/
+corpus/

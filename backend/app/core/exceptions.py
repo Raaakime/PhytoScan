@@ -5,11 +5,12 @@ Cela évite de mélanger la logique métier (services) et le protocole HTTP (rou
 
 
 class AppError(Exception):
-    """Erreur de base avec un code HTTP et un message lisible."""
+    """Erreur de base avec un code HTTP, un message lisible et d'éventuels en-têtes de réponse."""
     status_code = 400
 
-    def __init__(self, detail: str):
+    def __init__(self, detail: str, *, headers: dict[str, str] | None = None):
         self.detail = detail
+        self.headers = headers or {}
         super().__init__(detail)
 
 
@@ -35,6 +36,13 @@ class PayloadTooLargeError(AppError):
 
 class UnsupportedMediaTypeError(AppError):
     status_code = 415
+
+
+class TooManyRequestsError(AppError):
+    status_code = 429
+
+    def __init__(self, detail: str, *, retry_after: int = 60):
+        super().__init__(detail, headers={"Retry-After": str(max(1, int(retry_after)))})
 
 
 class ServiceUnavailableError(AppError):
