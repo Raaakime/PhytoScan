@@ -4,8 +4,10 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 from app.core.config import Settings
+from app.integrations.gemini import GeminiClient
 from app.voice.contracts import SpeechToText, TextToSpeech
 from app.voice.providers.elevenlabs import ElevenLabsTextToSpeech
+from app.voice.providers.gemini import GeminiSpeechToText, GeminiTextToSpeech
 from app.voice.providers.openai_compatible import OpenAISpeechToText, OpenAITextToSpeech
 from app.voice.providers.wolof_service import WolofSpeechToText, WolofTextToSpeech, WolofVoiceClient
 
@@ -38,8 +40,19 @@ def build_registry(settings: Settings) -> VoiceRegistry:
     closeables: list = []
 
     # --- français / anglais -------------------------------------------------------------------------
+    gemini: Optional[GeminiClient] = None
+    if "gemini" in (settings.VOICE_STT_PROVIDER, settings.VOICE_TTS_PROVIDER):
+        gemini = GeminiClient(base_url=settings.GEMINI_BASE_URL, timeout=settings.GEMINI_TIMEOUT_SECONDS,
+                              api_key=settings.GEMINI_API_KEY.get_secret_value())
+        closeables.append(gemini)
+
     stt: Optional[SpeechToText] = None
-    if settings.VOICE_STT_PROVIDER == "openai":
+    if settings.VOICE_STT_PROVIDER == "gemini":
+        stt = GeminiSpeechToText(
+            gemini, model=settings.GEMINI_STT_MODEL,
+            vocabulary=[w.strip() for w in settings.GEMINI_STT_VOCABULARY.split(",") if w.strip()],
+        )
+    elif settings.VOICE_STT_PROVIDER == "openai":
         stt = OpenAISpeechToText(
             base_url=settings.VOICE_OPENAI_BASE_URL, api_key=settings.VOICE_OPENAI_API_KEY.get_secret_value(),
             model=settings.VOICE_STT_MODEL, timeout=timeout,
@@ -48,7 +61,12 @@ def build_registry(settings: Settings) -> VoiceRegistry:
         closeables.append(stt)
 
     tts: Optional[TextToSpeech] = None
-    if settings.VOICE_TTS_PROVIDER == "openai":
+    if settings.VOICE_TTS_PROVIDER == "gemini":
+        tts = GeminiTextToSpeech(
+            gemini, model=settings.GEMINI_TTS_MODEL, voice=settings.GEMINI_TTS_VOICE,
+            styles={"fr": settings.GEMINI_TTS_STYLE_FR, "en": settings.GEMINI_TTS_STYLE_EN},
+        )
+    elif settings.VOICE_TTS_PROVIDER == "openai":
         tts = OpenAITextToSpeech(
             base_url=settings.VOICE_OPENAI_BASE_URL, api_key=settings.VOICE_OPENAI_API_KEY.get_secret_value(),
             model=settings.VOICE_TTS_MODEL, voice=settings.VOICE_TTS_VOICE, timeout=timeout,

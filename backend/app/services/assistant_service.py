@@ -16,7 +16,7 @@ import uuid
 from abc import ABC, abstractmethod
 from datetime import date, datetime, time
 from functools import lru_cache
-from typing import List, Optional
+from typing import List, Optional, Sequence, Tuple
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -364,8 +364,10 @@ def _weather_tips(tx, weather: dict, kinds=("heat", "humid", "rain")) -> str:
 # ---------------------------------------------------------------- interface
 class BaseAssistant(ABC):
     @abstractmethod
-    def answer(self, db: Session, question: str, lang: str, context: dict, owner_id: Optional[int]) -> str:
-        """Renvoie le texte de la réponse dans la langue demandée."""
+    def answer(self, db: Session, question: str, lang: str, context: dict, owner_id: Optional[int],
+               history: Sequence[Tuple[str, str]] = ()) -> str:
+        """`history` : derniers échanges de la conversation, [(« user » | « bot », texte)], du plus ancien au plus récent.
+        Renvoie le texte de la réponse dans la langue demandée."""
 
 
 def _owner_clause(owner_id: Optional[int]):
@@ -557,7 +559,8 @@ class RuleBasedAssistant(BaseAssistant):
         return f"{plant.alert or ''} {getattr(last_scan, 'result', '') or ''}".lower()
 
     # ------------------------------------------------ point d'entrée
-    def answer(self, db: Session, question: str, lang: str, context: dict, owner_id: Optional[int]) -> str:
+    def answer(self, db: Session, question: str, lang: str, context: dict, owner_id: Optional[int],
+               history: Sequence[Tuple[str, str]] = ()) -> str:
         tx = TEXTS[lang]
         q = question.lower()
         plants = db.scalars(select(Plant).where(_owner_clause(owner_id)).order_by(Plant.id)).all()
@@ -655,16 +658,26 @@ class RuleBasedAssistant(BaseAssistant):
 @lru_cache
 def get_assistant() -> BaseAssistant:
     """Choisit l'implémentation selon ASSISTANT_BACKEND (.env)."""
-    backend = get_settings().ASSISTANT_BACKEND.lower()
-    if backend == "mock":
-        return RuleBasedAssistant()
-    raise ValueError(f"ASSISTANT_BACKEND inconnu : {backend!r}")
+    settings = get_settings()
+    rules = RuleBasedAssistant()
+    if settings.ASSISTANT_BACKEND == "gemini":
+        from app.services.llm_assistant import build_gemini_assistant   # import local : évite un import circulaire
+        return build_gemini_assistant(settings, fallback=rules)
+    return rules
 
 
 # ---------------------------------------------------------------- orchestration
 def get_suggestions(language: str) -> SuggestionsResponse:
     lang = normalize_lang(language)
     return SuggestionsResponse(language=lang, questions=SUGGESTIONS[lang])
+
+
+def _recent_history(db: Session, session_id: str, owner_id: int, limit: int = 6) -> List[Tuple[str, str]]:
+    """Derniers messages de CETTE conversation, uniquement ceux de l'utilisateur connecté (jamais ceux d'un autre)."""
+    rows = db.scalars(select(ChatMessage).where(
+        ChatMessage.session_id == session_id, ChatMessage.user_id == owner_id
+    ).order_by(ChatMessage.id.desc()).limit(limit)).all()
+    return [(r.role, r.text) for r in reversed(rows)]
 
 
 def ask(db: Session, question: str, language: str, context: dict, session_id: Optional[str],
@@ -674,7 +687,8 @@ def ask(db: Session, question: str, language: str, context: dict, session_id: Op
     session_id = session_id or uuid.uuid4().hex[:16]
     owner_id = user.id if user else None
 
-    text = get_assistant().answer(db, question, lang, context, owner_id)
+    history = _recent_history(db, session_id, owner_id) if owner_id is not None else []
+    text = get_assistant().answer(db, question, lang, context, owner_id, history)
 
     # Mémorisation des deux messages (question + réponse)
     msg_bot = ChatMessage(session_id=session_id, user_id=owner_id, role="bot", text=text, lang=lang)

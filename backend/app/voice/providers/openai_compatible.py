@@ -6,7 +6,7 @@ il suffit de changer VOICE_OPENAI_BASE_URL et les noms de modèles.
 import httpx
 
 from app.voice.contracts import SpeechAudio
-from app.voice.providers._http import call_upstream, log
+from app.integrations.http import call_upstream, log
 
 
 class OpenAISpeechToText:

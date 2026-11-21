@@ -55,7 +55,12 @@ class Settings(BaseSettings):
     ML_MODEL_NAME: str = "octopus-vision-mock"
     ML_MODEL_PATH: Path = BASE_DIR / "app" / "ml" / "weights" / "model.onnx"
     ML_LABELS_PATH: Path = BASE_DIR / "app" / "ml" / "labels.json"
-    ASSISTANT_BACKEND: str = "mock"   # "mock" = réponses à base de règles ; extensible vers un LLM
+    # "mock" = réponses à base de règles (gratuit, sans clé) ; "gemini" = LLM Gemini, avec repli sur les règles
+    ASSISTANT_BACKEND: Literal["mock", "gemini"] = "mock"
+    ASSISTANT_LLM_LANGUAGES: str = "fr,en"        # langues confiées au LLM ; les autres (wolof) restent sur les règles
+    ASSISTANT_LLM_RATE_PER_MINUTE: int = 10       # par utilisateur connecté (0 = illimité) ; au-delà : réponse par règles
+    ASSISTANT_LLM_DAILY_QUOTA: int = 200
+    ASSISTANT_LLM_MAX_CHARS: int = 700            # une réponse lue à voix haute doit rester courte
 
     # --- Assistant vocal (voir backend/README.md, section « Assistant vocal ») ---
     VOICE_ENABLED: bool = False
@@ -69,9 +74,10 @@ class Settings(BaseSettings):
     VOICE_TTS_CACHE_ENTRIES: int = 128
     VOICE_PROVIDER_TIMEOUT_SECONDS: float = 30
 
-    # Français / anglais. « openai » = toute API compatible OpenAI (OpenAI, Groq, passerelle interne...).
-    VOICE_STT_PROVIDER: Literal["openai", "none"] = "openai"
-    VOICE_TTS_PROVIDER: Literal["openai", "elevenlabs", "none"] = "openai"
+    # Français / anglais : « gemini » (une clé pour la voix et l'assistant), « openai » = toute API compatible OpenAI
+    # (OpenAI, passerelle interne, freellmapi en développement), « elevenlabs » pour la voix seulement.
+    VOICE_STT_PROVIDER: Literal["gemini", "openai", "none"] = "gemini"
+    VOICE_TTS_PROVIDER: Literal["gemini", "openai", "elevenlabs", "none"] = "gemini"
     VOICE_OPENAI_BASE_URL: str = "https://api.openai.com/v1"
     VOICE_OPENAI_API_KEY: SecretStr = SecretStr("")
     VOICE_STT_MODEL: str = "gpt-4o-mini-transcribe"
@@ -96,6 +102,25 @@ class Settings(BaseSettings):
     ELEVENLABS_VOICE_ID: str = ""
     ELEVENLABS_TTS_MODEL: str = "eleven_multilingual_v2"
 
+    # --- Gemini (reconnaissance, voix et assistant) : https://aistudio.google.com/ ---
+    # ATTENTION : avec l'offre GRATUITE, Google peut utiliser les contenus envoyés (dont les voix) pour améliorer ses
+    # produits. Pour de vrais utilisateurs, activez la facturation (offre payante : contenus non utilisés).
+    GEMINI_API_KEY: SecretStr = SecretStr("")
+    GEMINI_BASE_URL: str = "https://generativelanguage.googleapis.com/v1beta"
+    GEMINI_TIMEOUT_SECONDS: float = 20
+    GEMINI_LLM_MODEL: str = "gemini-3.5-flash-lite"
+    GEMINI_LLM_THINKING_LEVEL: str = "minimal"    # latence minimale ; « low » pour gemini-3.8-flash (« minimal » non pris en charge)
+    GEMINI_LLM_MAX_OUTPUT_TOKENS: int = 600       # compte aussi les « pensées » du modèle
+    GEMINI_STT_MODEL: str = "gemini-3.5-transcribe"
+    GEMINI_STT_VOCABULARY: str = (
+        "plante, parcelle, tomate, poivron, aubergine, piment, oignon, mildiou, oïdium, cercospora, "
+        "arrosage, traitement, feuilles, PhytoScan"
+    )
+    GEMINI_TTS_MODEL: str = "gemini-3.8-flash-tts"
+    GEMINI_TTS_VOICE: str = "Erinome"             # voix « Clear » ; autres : Sulafat (chaleureuse), Achird (amicale)...
+    GEMINI_TTS_STYLE_FR: str = "voix calme, très claire et chaleureuse d'un conseiller agricole, diction posée"
+    GEMINI_TTS_STYLE_EN: str = "calm, very clear and warm voice of a farm advisor, steady pace"
+
     # Wolof : microservice d'inférence « voice-service » (modèles ouverts auto-hébergés).
     VOICE_WOLOF_SERVICE_URL: str = ""            # ex. http://voice-service:8080 ; vide = wolof vocal désactivé
     VOICE_WOLOF_SERVICE_TOKEN: SecretStr = SecretStr("")
@@ -110,6 +135,8 @@ class Settings(BaseSettings):
         """Garde-fou : en production, on refuse de démarrer avec la clé secrète par défaut."""
         if self.ENVIRONMENT == "prod" and self.SECRET_KEY.startswith("dev-secret"):
             raise ValueError("SECRET_KEY par défaut interdite en production : définissez une valeur longue et aléatoire.")
+        if self.ASSISTANT_BACKEND == "gemini" and not self.GEMINI_API_KEY.get_secret_value():
+            raise ValueError("ASSISTANT_BACKEND=gemini exige GEMINI_API_KEY (ou repassez ASSISTANT_BACKEND=mock).")
         return self
 
 

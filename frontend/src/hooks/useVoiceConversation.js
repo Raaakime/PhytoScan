@@ -15,15 +15,16 @@ function describeApiError(error) {
 
 /**
  * Une conversation vocale : micro -> envoi au serveur -> réponse.
+ * `sessionRef` est partagé avec les questions écrites : voix et texte forment UNE conversation (le serveur
+ * s'en sert pour comprendre « et pour la plante 3 ? »).
  *
  * phase : 'idle' | 'requesting' | 'recording' | 'processing'.
  * error : null | { code } | { message }. `onTurn(result)` reçoit la réponse du serveur
  * (transcript, text, audioBase64...). La session côté serveur est conservée pour toute la conversation.
  */
-export function useVoiceConversation({ language, maxRecordingSeconds = 30, onTurn }) {
+export function useVoiceConversation({ language, sessionRef, maxRecordingSeconds = 30, onTurn }) {
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState(null);
-  const sessionRef = useRef(null);
   const requestRef = useRef(0);
   const abortRef = useRef(null);
   const languageRef = useRef(language);
@@ -50,7 +51,7 @@ export function useVoiceConversation({ language, maxRecordingSeconds = 30, onTur
     } finally {
       if (requestRef.current === requestId) setProcessing(false);
     }
-  }, []);
+  }, [sessionRef]);
 
   const recorder = useVoiceRecorder({
     maxSeconds: Math.max(5, maxRecordingSeconds - SAFETY_MARGIN_SECONDS),
@@ -82,7 +83,7 @@ export function useVoiceConversation({ language, maxRecordingSeconds = 30, onTur
     cancel();
     sessionRef.current = null;
     setError(null);
-  }, [cancel]);
+  }, [cancel, sessionRef]);
 
   // Changer de langue ferme la conversation : la session du serveur est propre à une langue.
   useEffect(() => {

@@ -67,11 +67,11 @@ Langue : ajouter `?lang=fr|wo|en` à chaque requête (sinon l'en-tête `Accept-L
  navigateur ──audio (WebM/MP4)──▶  POST /voice/chat ──▶  décodage + validation (PyAV, WAV 16 kHz)
    (micro)                                                      │
                                                                ▼
-              fr / en : API compatible OpenAI (STT)      wo : microservice voice-service (STT)
+              fr / en : Gemini (ou API OpenAI) (STT)     wo : microservice voice-service (STT)
                                                                │
                               assistant_service.ask (réponses guidées, historique du compte)
                                                                │
-              fr / en : OpenAI TTS ou ElevenLabs         wo : microservice voice-service (TTS)
+              fr / en : Gemini, OpenAI ou ElevenLabs     wo : microservice voice-service (TTS)
                                                                ▼
  navigateur ◀── JSON { transcript, text, audioBase64, audioError } ──
 ```
@@ -93,19 +93,32 @@ Garanties du module :
 - **Lecture adaptée à l'oreille** : « 74/100 » → « 74 sur 100 », dates, pourcentages, noms latins retirés, nombres lus en wolof.
 - Journaux `phytoscan.voice` : durées par étape et statuts des fournisseurs (jamais le contenu des échanges).
 
-### Français et anglais
+### Français et anglais avec Gemini
 
 ```env
 VOICE_ENABLED=true
-VOICE_OPENAI_API_KEY=sk-...
-VOICE_STT_MODEL=gpt-4o-mini-transcribe
-VOICE_TTS_MODEL=gpt-4o-mini-tts
-VOICE_TTS_VOICE=nova
+GEMINI_API_KEY=...                  # https://aistudio.google.com/
+ASSISTANT_BACKEND=gemini            # facultatif : le LLM répond à la place des règles
 ```
 
-`VOICE_OPENAI_BASE_URL` accepte toute passerelle qui expose `/audio/transcriptions` et `/audio/speech`. Pour une voix ElevenLabs : `VOICE_TTS_PROVIDER=elevenlabs` + `ELEVENLABS_API_KEY` + `ELEVENLABS_VOICE_ID`. **Vérifiez les noms de modèles et les tarifs chez votre fournisseur avant la mise en production** : ils changent régulièrement. Les consignes de diction (`VOICE_TTS_INSTRUCTIONS_FR/EN`) ne sont comprises que par les modèles qui les gèrent (laisser vide pour `tts-1`).
+Une seule clé couvre la reconnaissance (`gemini-3.5-transcribe`, avec le vocabulaire agricole de `GEMINI_STT_VOCABULARY`), la voix (`gemini-3.8-flash-tts`, voix `GEMINI_TTS_VOICE`, consigne de diction `GEMINI_TTS_STYLE_FR/EN`) et l'assistant (`gemini-3.5-flash-lite`, réflexion minimale pour la latence). Tous les noms sont des variables d'environnement.
 
-À savoir : l'audio des utilisateurs est transmis au fournisseur choisi (hors de l'UE pour OpenAI/ElevenLabs). Informez les utilisateurs et vérifiez la conformité avec la réglementation sur les données personnelles applicable à votre déploiement.
+**Avant de compter dessus, lancez une fois `python scripts/check_gemini.py`** avec votre clé. Les requêtes de ce code ont été écrites d'après la documentation de Google (API « Interactions »), qui évolue vite, **sans appel réel** : le script interroge vraiment le LLM, la voix et la reconnaissance, écrit `gemini_fr.wav` pour que vous écoutiez la voix, et affiche le code HTTP et le corps de toute erreur.
+
+**Données et coût.**
+- **Offre gratuite : Google peut utiliser les contenus envoyés (y compris les voix) pour améliorer ses produits.** Pour des utilisateurs réels, activez la facturation : les contenus ne sont alors plus utilisés. Informez les utilisateurs de l'envoi de leur voix à Google.
+- Les modèles Gemini changent vite (certains sont retirés). Vérifiez la page des modèles avant de figer une version ; `gemini-2.5-flash` est par exemple redirigé vers un autre modèle le 1er décembre 2026.
+- Tarifs et limites : voir la page « pricing » de Google AI Studio ; ils ne sont pas répétés ici car ils changent.
+
+### Assistant LLM (`ASSISTANT_BACKEND=gemini`)
+
+Le LLM répond avec les **vraies données** de l'utilisateur (ses plantes, alertes, historique, soins), le catalogue de maladies et de remèdes de la base, la météo et les derniers échanges de la conversation. Il a pour consigne de ne jamais inventer de produit ni de dose et de renvoyer vers un conseiller agricole pour les cas graves ; les données y sont présentées comme des données, jamais comme des instructions.
+
+L'assistant à règles reste en place **et répond à la place du LLM** dans tous ces cas, sans erreur visible : visiteur non connecté (aucun appel payant), langue non confiée au LLM (le wolof), quota dépassé (`ASSISTANT_LLM_RATE_PER_MINUTE`, `ASSISTANT_LLM_DAILY_QUOTA`), panne ou réponse vide. Le serveur refuse de démarrer si `ASSISTANT_BACKEND=gemini` sans clé.
+
+### Autre fournisseur (API compatible OpenAI)
+
+`VOICE_STT_PROVIDER=openai` et `VOICE_TTS_PROVIDER=openai` avec `VOICE_OPENAI_BASE_URL` / `VOICE_OPENAI_API_KEY` ; ElevenLabs pour la voix seule avec `VOICE_TTS_PROVIDER=elevenlabs`. Utile en développement avec une passerelle comme `freellmapi` (jamais en production : « usage expérimental personnel »).
 
 ### Wolof
 

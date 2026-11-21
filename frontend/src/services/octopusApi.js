@@ -345,7 +345,8 @@ async function simulateOctopusInference(imageFile, options = {}) {
 /**
  * Pose une question à l'assistant vocal PhytoScan
  */
-export async function askOctopusAssistant(question, language = "fr", context = {}) {
+// `sessionId` : identifiant de la conversation (renvoyé par le serveur) ; sans lui, chaque question est isolée.
+export async function askOctopusAssistant(question, language = "fr", context = {}, sessionId = null) {
   const config = getOctopusConfig();
 
   if (!config.useMock && config.baseUrl) {
@@ -353,7 +354,7 @@ export async function askOctopusAssistant(question, language = "fr", context = {
       return await apiRequest("/assistant/ask", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question, language, context })
+        body: JSON.stringify({ question, language, context, ...(sessionId ? { sessionId } : {}) })
       }, config.baseUrl);
     } catch (error) {
       throw new Error(`Échec de l'assistant backend : ${error.message}`);

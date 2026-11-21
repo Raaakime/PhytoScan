@@ -70,6 +70,7 @@ export default function VoiceAssistantScreen({
   const [showAllAlerts, setShowAllAlerts] = useState(false);
   const climate = useClimateRisks(plants);
   const chatBottomRef = useRef(null);
+  const sessionRef = useRef(null);   // conversation partagée par la voix et le texte
 
   // --- voix -----------------------------------------------------------------------------------------
   const copy = voiceCopyFor(currentLang);
@@ -100,6 +101,7 @@ export default function VoiceAssistantScreen({
 
   const voice = useVoiceConversation({
     language: currentLang,
+    sessionRef,
     maxRecordingSeconds: voiceStatus.maxRecordingSeconds,
     onTurn: handleVoiceTurn,
   });
@@ -169,7 +171,8 @@ export default function VoiceAssistantScreen({
     setIsThinking(true);
 
     try {
-      const botReply = await askOctopusAssistant(query, currentLang, climate.context);
+      const botReply = await askOctopusAssistant(query, currentLang, climate.context, sessionRef.current);
+      if (botReply.sessionId) sessionRef.current = botReply.sessionId;
       setMessages(prev => [
         ...prev,
         { id: `b-${Date.now()}`, sender: 'bot', text: botReply.text, timestamp: botReply.timestamp || nowLabel() }

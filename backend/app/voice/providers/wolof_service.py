@@ -5,7 +5,7 @@ import time
 import httpx
 
 from app.voice.contracts import SpeechAudio
-from app.voice.providers._http import call_upstream, log
+from app.integrations.http import call_upstream, log
 
 
 class WolofVoiceClient:
