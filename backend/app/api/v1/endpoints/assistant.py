@@ -1,4 +1,5 @@
-"""Routes de l'assistant vocal. `POST /assistant/ask` est appelée par askOctopusAssistant() du front."""
+"""Routes de l'assistant écrit. `POST /assistant/ask` est appelée par askOctopusAssistant() du front.
+La voix (micro et lecture à voix haute) est dans voice.py."""
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, Query

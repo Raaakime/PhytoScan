@@ -249,8 +249,10 @@ const handleUpdatePlant = async (plantId, plantData) => {
 
       case 'assistant':
         return (
-          <VoiceAssistantScreen 
+          <VoiceAssistantScreen
             plants={plantsList}
+            isAuthenticated={!isDemo}
+            onRequireLogin={() => navigateTo('login')}
             initialQuery={navigationParams?.initialQuery || ''}
             onClearInitialQuery={() => setNavigationParams(prev => ({ ...prev, initialQuery: '' }))}
             onNavigateToScan={(params) => navigateTo('scan', params)}

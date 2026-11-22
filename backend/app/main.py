@@ -28,6 +28,8 @@ async def lifespan(app: FastAPI):
         from app.db.seed import run_seed
         run_seed(demo_plants=settings.SEED_DEMO_PLANTS)
     yield
+    from app.services.voice_service import shutdown_voice
+    shutdown_voice()  # ferme proprement les connexions HTTP vers les fournisseurs vocaux
 
 
 app = FastAPI(title=settings.APP_NAME, version="0.1.0", lifespan=lifespan)
@@ -36,14 +38,17 @@ app = FastAPI(title=settings.APP_NAME, version="0.1.0", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware, allow_origins=settings.CORS_ORIGINS,
     allow_credentials=True, allow_methods=["*"], allow_headers=["*"],
+    expose_headers=["Retry-After", "X-Audio-Truncated"],
 )
 
 
 @app.exception_handler(AppError)
 async def app_error_handler(_: Request, exc: AppError):
     """Transforme les erreurs métier en réponses JSON : {"detail": "..."}."""
-    headers = {"WWW-Authenticate": "Bearer"} if exc.status_code == 401 else None
-    return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail}, headers=headers)
+    headers = dict(exc.headers)
+    if exc.status_code == 401:
+        headers["WWW-Authenticate"] = "Bearer"
+    return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail}, headers=headers or None)
 
 @app.get("/", include_in_schema=False)
 def root():

@@ -1,0 +1,6 @@
+# Moteurs Hugging Face (ENGINE=hf). torch est installé à part depuis l'index CPU (voir Dockerfile).
+# Versions testées : torch 2.15, transformers 5.24.
+torch>=2.15,<3
+transformers>=5.24,<6
+sentencepiece>=0.2
+huggingface_hub>=0.30

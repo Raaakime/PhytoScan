@@ -1,0 +1,6 @@
+# Service HTTP (suffisant pour ENGINE=fake et pour les tests)
+fastapi>=0.115
+uvicorn[standard]>=0.30
+python-multipart>=0.0.9
+pydantic-settings>=2.3
+numpy>=1.26
